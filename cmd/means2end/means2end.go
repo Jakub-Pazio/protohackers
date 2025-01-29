@@ -2,7 +2,8 @@ package main
 
 import (
 	"bean/pkg/pserver"
-	"errors"
+	"encoding/binary"
+	"flag"
 	"fmt"
 	"github.com/huandu/skiplist"
 	"log"
@@ -10,137 +11,108 @@ import (
 	"net"
 )
 
+const BufferSize = 1024
+const MessageLength = 9
+
+var portNumber = flag.Int("port", 4242, "Port number of server")
+
 func main() {
-	log.Fatal(pserver.ListenServe(handleConnection, 4242))
+	log.Fatal(pserver.ListenServe(handleConnection, *portNumber))
 }
 
 func handleConnection(conn net.Conn) {
 	defer pserver.HandleConnShutdown(conn)
+
 	store := NewStore()
-	defer func(conn net.Conn) {
-		log.Println("closing connection")
-		err := conn.Close()
-		if err != nil {
-			log.Printf("error when closing connection: %v\n", err)
-		}
-		log.Println("connection closed")
-	}(conn)
-	//TODO: Create two goroutines; one reading from socket and sending 9 bytes to another goroutine
-	// 		that will handle dealing with logic
-	msg := make([]byte, 9)
-	buf := make([]byte, 1024)
+	buf := make([]byte, BufferSize)
 	offset := 0
 	handled := 0
-	mv := 0
+
 	for {
-		n, err := conn.Read(buf[mv:])
+		n, err := conn.Read(buf[offset:])
 		if n == 0 {
+			log.Println("end of data from client")
 			return
 		}
-		log.Printf("read: %d bytes\n", n)
-		log.Printf("mv: %d, n: %d, first 18bytes: %x\n", mv, n, buf[:17])
-		for i := range n {
-			fmt.Printf("%x ", buf[i+mv])
-		}
-		fmt.Println()
 		offset += n
+
 		if offset < 9 {
-			mv += n
+			// No full message in the buffer, we need to gather more bytes from connection
 			continue
 		}
-		// Here we have enough data to handle message
 
-		// Until we dealt with all "full messages"
-		for handled+9 <= offset {
-			log.Printf("got (at least) whole message; offset: %d, handled: %d\n", offset, handled)
+		messagesNumber := offset / MessageLength
+		rest := offset % MessageLength
+		handled = messagesNumber * MessageLength
 
-			msg = buf[handled : handled+9]
-			fmt.Print("Processing msg: ")
-			for i := range len(msg) {
-				fmt.Printf("%x ", msg[i])
-			}
-			fmt.Println()
-			handled += 9
+		messagesData := buf[:handled]
+		err = HandleMessages(conn, messagesData, store)
 
-			if err != nil {
-				log.Printf("error reading from sokcet: %v\n", err)
-				break
-			}
-			log.Printf("received bytes: %x\n", msg)
-			// Here goes logic
-
-			switch {
-			case msg[0] == byte('I'):
-				timestamp, err := ConvMsg(msg[1:5])
-				if err != nil {
-					log.Printf("could not parse timstamp: %v", err)
-					//TODO: handle closing connection
-				}
-				price, err := ConvMsg(msg[5:9])
-				if err != nil {
-					log.Printf("could not parse timstamp: %v", err)
-					//TODO: handle closing connection
-				}
-				store.AddPrice(timestamp, price)
-			case msg[0] == byte('Q'):
-				start, err := ConvMsg(msg[1:5])
-				if err != nil {
-					log.Printf("could not parse timstamp: %v", err)
-					//TODO: handle closing connection
-				}
-				end, err := ConvMsg(msg[5:9])
-				if err != nil {
-					log.Printf("could not parse timstamp: %v", err)
-					//TODO: handle closing connection
-				}
-				log.Printf("start: %d, end:%d\n", start, end)
-				res := store.AvgFromRange(start, end)
-				resBytes := make([]byte, 4)
-				resBytes[0] = byte(res >> 24)
-				resBytes[1] = byte(res >> 16)
-				resBytes[2] = byte(res >> 8)
-				resBytes[3] = byte(res)
-				conn.Write(resBytes)
-			default:
-				log.Printf("undefined message type with value: %x\n", msg[0])
-				return
-			}
-			//Here logic ends(?)
-			//wn, err := conn.Write(msg[:n])
-			//log.Printf("read and send: %s", msg[:n])
-			//if err != nil {
-			//	log.Printf("error writing to sokcet: %v\n", err)
-			//}
-			//if wn != n {
-			//	log.Printf("read %d bytes but wrote %d bytes\n", n, wn)
-			//}
-		}
-		log.Printf("not enough bytes for message: offset: %d, handled: %d\n", offset, handled)
-		rest := offset - handled
-		log.Printf("unhandled data in the buffer (%d bytes) :\n buffer(100): ", rest)
-		for i := range 100 {
-			fmt.Printf("%d: %x, ", i, buf[i])
-		}
-		fmt.Println()
 		for i := range rest {
-			fmt.Printf("writing from buf at position: %d ", handled+i)
-			fmt.Printf("%x\n", buf[handled+i])
 			buf[i] = buf[handled+i]
 		}
-		fmt.Println()
-		mv = rest
+
+		if err != nil {
+			log.Printf("could not handle message: %v\n", err)
+			return
+		}
+
 		offset = rest
 		handled = 0
 	}
 }
 
+func HandleMessages(conn net.Conn, buf []byte, store *Store) error {
+	handled := 0
+	offset := len(buf)
+	for handled+9 <= offset {
+		log.Println("Processing msg")
+		msg := buf[handled : handled+9]
+		handled += 9
+
+		switch msg[0] {
+		case byte('I'):
+			timestamp, err := ConvMsg(msg[1:5])
+			if err != nil {
+				return fmt.Errorf("could not parse timstamp: %v", err)
+			}
+			price, err := ConvMsg(msg[5:9])
+			if err != nil {
+				return fmt.Errorf("could not parse price: %v", err)
+			}
+			store.AddPrice(timestamp, price)
+		case byte('Q'):
+			start, err := ConvMsg(msg[1:5])
+			if err != nil {
+				return fmt.Errorf("could not parse timstamp: %v", err)
+			}
+			end, err := ConvMsg(msg[5:9])
+			if err != nil {
+				return fmt.Errorf("could not parse timstamp: %v", err)
+			}
+			res := store.AvgFromRange(start, end)
+			resBytes := writeToBytes(res)
+			_, _ = conn.Write(resBytes)
+		default:
+			return fmt.Errorf("undefined message type with value: %x\n", msg[0])
+		}
+	}
+	return nil
+}
+
+func writeToBytes(res int32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, uint32(res))
+	return buf
+}
+
 type Store struct {
-	prices skiplist.SkipList
+	prices *skiplist.SkipList
 }
 
 func NewStore() *Store {
 	return &Store{
-		prices: *skiplist.New(skiplist.Int32Asc),
+		prices: skiplist.New(skiplist.Int32Asc),
 	}
 }
 
@@ -169,16 +141,13 @@ func (s *Store) AvgFromRange(start int32, end int32) int32 {
 		start = first.Key().(int32)
 	}
 
-	log.Printf("calulationg avg from sum: %v, and len: %d\n", sum, l)
+	log.Printf("deriving avg from sum: %v, and len: %d\n", sum, l)
 	res := big.NewInt(0).Div(&sum, big.NewInt(l))
 	return int32(res.Int64())
 }
-
-func WrongLenMessage(l int) error { return errors.New(fmt.Sprintf("Message with wrong lenght: %d", l)) }
-
 func ConvMsg(msg []byte) (int32, error) {
 	if len(msg) != 4 {
-		return 0, WrongLenMessage(len(msg))
+		return 0, fmt.Errorf("invalid message length: %d", len(msg))
 	}
 	var result int32
 	result |= int32(msg[0]) << 24
