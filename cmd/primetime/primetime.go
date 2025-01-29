@@ -1,120 +1,110 @@
 package main
 
 import (
+	"bean/pkg/pserver"
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"math/big"
 	"net"
 )
 
+const BufferSize = 1024 * 64
+
+var portNumber = flag.Int("port", 4242, "Port number of server")
+
 func main() {
-	ln, err := net.Listen("tcp", ":8080")
-	if err != nil {
-		log.Fatalf("cannot bind to tcp socket: %v\n", err)
-	}
-	log.Println("server started successfully")
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("cannot accept connection: %v\n", err)
-		}
-		log.Println("accepted connection")
-		go handleConnection(conn)
-	}
+	handler := pserver.WithMiddleware(
+		handleConnection,
+		pserver.LoggingMiddleware,
+	)
+	log.Fatal(pserver.ListenServe(handler, *portNumber))
 }
 
 func handleConnection(conn net.Conn) {
-	defer func(conn net.Conn) {
-		log.Println("closing connection")
-		err := conn.Close()
-		if err != nil {
-			log.Printf("error when closing connection: %v\n", err)
-		}
-		log.Println("connection closed")
-	}(conn)
+	defer pserver.HandleConnShutdown(conn)
+	reader := bufio.NewReaderSize(conn, BufferSize)
 	for {
-		type Req struct {
-			Method *string  `json:"method"`
-			Number *big.Int `json:"number"`
+		line, err := reader.ReadSlice('\n')
+		if err != nil {
+			log.Printf("error when reading from socket: %v\n", err)
+			_, _ = conn.Write(line)
+			return
 		}
-		type ReqF struct {
-			Method *string  `json:"method"`
-			Number *float64 `json:"number"`
-		}
-		type Res struct {
-			Method string `json:"method"`
-			Prime  bool   `json:"prime"`
-		}
-		reader := bufio.NewReaderSize(conn, 64*1024)
-		for {
-			line, err := reader.ReadSlice('\n')
-			if err != nil {
-				log.Printf("error when reading from socket: %v\n", err)
-				conn.Close()
-				return
-			}
-			log.Printf("got message: %v\n", string(line))
 
-			var req Req
-			err = json.Unmarshal(line, &req)
-			if err != nil {
-				//907679055587844667193521059264604184896872566615279722448
-				//9223372036854775807
-				log.Printf("error when unmarshaling message: %v\n", err)
-				var reqF ReqF
-				err = json.Unmarshal(line, &reqF)
-				if err == nil {
-					log.Println("here")
-					if req.Method == nil || *req.Method != "isPrime" || req.Number == nil {
-						log.Printf("method was not \"isPrime\" but: %v\n", req.Method)
-						conn.Write(line)
-						conn.Close()
-						return
-					}
-					res := Res{
-						Method: "isPrime",
-						Prime:  false,
-					}
-					b, _ := json.Marshal(res)
-					b = append(b, '\n')
-					conn.Write(b)
-					log.Printf("message contains floating point number: %f", reqF.Number)
-					continue
-				} else {
-					fmt.Printf("could not unmarshal as float: %v", string(line))
-				}
-				conn.Write(line)
-				conn.Close()
-				return
-			}
-			if req.Method == nil || *req.Method != "isPrime" || req.Number == nil {
-				log.Printf("method was not \"isPrime\" but: %v\n", req.Method)
-				conn.Write(line)
-				conn.Close()
-				return
-			}
-			var res Res
-			res.Method = "isPrime"
-			if req.Number.ProbablyPrime(20) {
-				res.Prime = true
-			} else {
-				res.Prime = false
-			}
-			b, err := json.Marshal(res)
-			if err != nil {
-				log.Printf("error when marshaling the response: %v\n", err)
-			}
-			b = append(b, '\n')
-			n, err := conn.Write(b)
-			log.Printf("responding with: %v\n", string(b))
-			if n != len(b) {
-				log.Printf("could not write whole response, had %d, but wrote %d\n", len(b), n)
-			}
-			if err != nil {
-				log.Printf("error writing the response: %v\n", err)
-			}
+		log.Printf("request: %s", string(line))
+
+		value, ok := getIntFromRequest(line)
+		if ok {
+			_ = writeResponse(conn, checkIsPrime(*value))
+			continue
 		}
+
+		if checkIsValidFloat(line) {
+			_ = writeResponse(conn, false)
+			continue
+		}
+		fmt.Printf("malformed response: %s", line)
+		_, _ = conn.Write(line)
+		return
 	}
+}
+
+type reqBigInt struct {
+	Method *string  `json:"method"`
+	Number *big.Int `json:"number"`
+}
+type reqFloat struct {
+	Method *string  `json:"method"`
+	Number *float64 `json:"number"`
+}
+type res struct {
+	Method string `json:"method"`
+	Prime  bool   `json:"prime"`
+}
+
+func writeResponse(conn net.Conn, value bool) error {
+	response := res{
+		Method: "isPrime",
+		Prime:  value,
+	}
+	b, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("error when marshaling the response: %v", err)
+	}
+	b = append(b, '\n')
+	n, err := conn.Write(b)
+	if err != nil {
+		return fmt.Errorf("error when writing to client: %v", err)
+	}
+	if n != len(b) {
+		return fmt.Errorf("could not write the whole response: had %d wrote: %d", n, len(b))
+	}
+	log.Printf("response: %s", string(b))
+	return nil
+}
+
+func getIntFromRequest(line []byte) (*big.Int, bool) {
+	var req reqBigInt
+	err := json.Unmarshal(line, &req)
+	if err == nil && req.Method != nil && *req.Method == "isPrime" && req.Number != nil {
+		return req.Number, true
+	}
+	return nil, false
+}
+
+func checkIsValidFloat(line []byte) bool {
+	var req reqFloat
+	err := json.Unmarshal(line, &req)
+	if err == nil && req.Method != nil && *req.Method == "isPrime" && req.Number != nil {
+		log.Printf("got float: %f\n", *req.Number)
+		return true
+	}
+	return false
+}
+
+func checkIsPrime(b big.Int) bool {
+	return b.ProbablyPrime(20)
 }

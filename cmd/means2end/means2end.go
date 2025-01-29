@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bean/pkg/pserver"
+	"errors"
 	"fmt"
 	"github.com/huandu/skiplist"
 	"log"
@@ -8,87 +10,13 @@ import (
 	"net"
 )
 
-type Store struct {
-	prices skiplist.SkipList
-
-	//mu sync.Mutex
-}
-
-func NewStore() *Store {
-	return &Store{
-		prices: *skiplist.New(skiplist.Int32Asc),
-	}
-}
-
-func (s *Store) AddPrice(time, price int32) {
-	log.Printf("adding value: %d, for time: %d\n", price, time)
-	//s.mu.Lock()
-	//defer s.mu.Unlock()
-
-	s.prices.Set(time, price)
-}
-
-func (s *Store) AvgFromRange(start int32, end int32) int32 {
-	log.Printf("query for range at: %d - %d\n", start, end)
-	arr := make([]int32, 0)
-	var l int64
-	var sum big.Int
-	//s.mu.Lock()
-	//defer s.mu.Unlock()
-	first := s.prices.Find(start)
-	if first == nil || first.Key().(int32) > end {
-		return 0
-	}
-	start = first.Key().(int32)
-	log.Printf("%d: time: %d, value: %d", len(arr), first.Key().(int32), first.Value.(int32))
-	for start <= end {
-		arr = append(arr, first.Value.(int32))
-		sum = *big.NewInt(0).Add(&sum, big.NewInt(int64(first.Value.(int32))))
-		l++
-		log.Printf("%d: time: %d, value: %d", len(arr), first.Key().(int32), first.Value.(int32))
-		first = s.prices.Find(start + 1)
-		if first == nil {
-			break
-		}
-		start = first.Key().(int32)
-	}
-	for _, v := range arr {
-		fmt.Printf("%x ", v)
-	}
-	log.Printf("calulationg avg from sum: %d, and len: %d\n", sum, l)
-	if len(arr) == 0 {
-		return 0
-	}
-	res := big.NewInt(0).Div(&sum, big.NewInt(l))
-	return int32(res.Int64())
-	//sort.Slice(arr, func(i, j int) bool {
-	//	return arr[i] < arr[j]
-	//})
-	//log.Println("calculating result from", arr)
-	//if len(arr)%2 == 1 {
-	//	return arr[len(arr)/2]
-	//}
-	//return (arr[len(arr)/2-1] + arr[len(arr)/2]) / 2
-}
-
 func main() {
-	ln, err := net.Listen("tcp", ":8080")
-	if err != nil {
-		log.Fatalf("cannot bind to tcp socket: %v\n", err)
-	}
-	log.Println("server started successfully")
-	for {
-		store := NewStore()
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("cannot accept connection: %v\n", err)
-		}
-		log.Println("accepted connection")
-		go handleConnection(conn, store)
-	}
+	log.Fatal(pserver.ListenServe(handleConnection, 4242))
 }
 
-func handleConnection(conn net.Conn, store *Store) {
+func handleConnection(conn net.Conn) {
+	defer pserver.HandleConnShutdown(conn)
+	store := NewStore()
 	defer func(conn net.Conn) {
 		log.Println("closing connection")
 		err := conn.Close()
@@ -140,34 +68,31 @@ func handleConnection(conn net.Conn, store *Store) {
 			}
 			log.Printf("received bytes: %x\n", msg)
 			// Here goes logic
-			if msg[0] == byte('I') {
-				var timestamp int32
-				timestamp |= int32(msg[1]) << 24
-				timestamp |= int32(msg[2]) << 16
-				timestamp |= int32(msg[3]) << 8
-				timestamp |= int32(msg[4])
-				var price int32
-				price |= int32(msg[5]) << 24
-				price |= int32(msg[6]) << 16
-				price |= int32(msg[7]) << 8
-				price |= int32(msg[8])
-				//for _, b := range msg {
-				//	log.Printf("%02x ", b)
-				//}
-				//log.Println()
-				//log.Printf("time %d, price %d\n", timestamp, price)
+
+			switch {
+			case msg[0] == byte('I'):
+				timestamp, err := ConvMsg(msg[1:5])
+				if err != nil {
+					log.Printf("could not parse timstamp: %v", err)
+					//TODO: handle closing connection
+				}
+				price, err := ConvMsg(msg[5:9])
+				if err != nil {
+					log.Printf("could not parse timstamp: %v", err)
+					//TODO: handle closing connection
+				}
 				store.AddPrice(timestamp, price)
-			} else if msg[0] == byte('Q') {
-				var start int32
-				start ^= int32(msg[1]) << 24
-				start ^= int32(msg[2]) << 16
-				start ^= int32(msg[3]) << 8
-				start ^= int32(msg[4])
-				var end int32
-				end ^= int32(msg[5]) << 24
-				end ^= int32(msg[6]) << 16
-				end ^= int32(msg[7]) << 8
-				end ^= int32(msg[8])
+			case msg[0] == byte('Q'):
+				start, err := ConvMsg(msg[1:5])
+				if err != nil {
+					log.Printf("could not parse timstamp: %v", err)
+					//TODO: handle closing connection
+				}
+				end, err := ConvMsg(msg[5:9])
+				if err != nil {
+					log.Printf("could not parse timstamp: %v", err)
+					//TODO: handle closing connection
+				}
 				log.Printf("start: %d, end:%d\n", start, end)
 				res := store.AvgFromRange(start, end)
 				resBytes := make([]byte, 4)
@@ -176,7 +101,7 @@ func handleConnection(conn net.Conn, store *Store) {
 				resBytes[2] = byte(res >> 8)
 				resBytes[3] = byte(res)
 				conn.Write(resBytes)
-			} else {
+			default:
 				log.Printf("undefined message type with value: %x\n", msg[0])
 				return
 			}
@@ -207,4 +132,58 @@ func handleConnection(conn net.Conn, store *Store) {
 		offset = rest
 		handled = 0
 	}
+}
+
+type Store struct {
+	prices skiplist.SkipList
+}
+
+func NewStore() *Store {
+	return &Store{
+		prices: *skiplist.New(skiplist.Int32Asc),
+	}
+}
+
+func (s *Store) AddPrice(time, price int32) {
+	log.Printf("adding value: %d, for time: %d\n", price, time)
+	s.prices.Set(time, price)
+}
+
+func (s *Store) AvgFromRange(start int32, end int32) int32 {
+	log.Printf("query for range at: %d - %d\n", start, end)
+	var l int64
+	var sum big.Int
+
+	first := s.prices.Find(start)
+	if first == nil || first.Key().(int32) > end {
+		return 0
+	}
+	start = first.Key().(int32)
+	for start <= end {
+		sum = *big.NewInt(0).Add(&sum, big.NewInt(int64(first.Value.(int32))))
+		l++
+		first = s.prices.Find(start + 1)
+		if first == nil {
+			break
+		}
+		start = first.Key().(int32)
+	}
+
+	log.Printf("calulationg avg from sum: %v, and len: %d\n", sum, l)
+	res := big.NewInt(0).Div(&sum, big.NewInt(l))
+	return int32(res.Int64())
+}
+
+func WrongLenMessage(l int) error { return errors.New(fmt.Sprintf("Message with wrong lenght: %d", l)) }
+
+func ConvMsg(msg []byte) (int32, error) {
+	if len(msg) != 4 {
+		return 0, WrongLenMessage(len(msg))
+	}
+	var result int32
+	result |= int32(msg[0]) << 24
+	result |= int32(msg[1]) << 16
+	result |= int32(msg[2]) << 8
+	result |= int32(msg[3])
+	return result, nil
 }
