@@ -16,10 +16,12 @@ const BufferSize = 1024 * 64
 var portNumber = flag.Int("port", 4242, "Port number of server")
 
 func main() {
+	flag.Parse()
 	handler := pserver.WithMiddleware(
 		handleConnection,
 		pserver.LoggingMiddleware,
 	)
+
 	log.Fatal(pserver.ListenServe(handler, *portNumber))
 }
 

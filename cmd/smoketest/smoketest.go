@@ -15,7 +15,8 @@ func main() {
 	flag.Parse()
 	handler := pserver.WithMiddleware(
 		handleConnection,
-		pserver.LoggingMiddleware)
+		pserver.LoggingMiddleware,
+	)
 
 	log.Fatal(pserver.ListenServe(handler, *portNumber))
 }
