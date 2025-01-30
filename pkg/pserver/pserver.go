@@ -8,6 +8,8 @@ import (
 
 type HandlerFunc func(conn net.Conn)
 
+type UDPHandlerFunc func(msg string) string
+
 type Middleware func(next HandlerFunc) HandlerFunc
 
 // ListenServe is responsible for starting the sever and listening on the given port
@@ -24,6 +26,31 @@ func ListenServe(handler HandlerFunc, port int) error {
 			log.Printf("cannot accept connection: %v\n", err)
 		}
 		go handler(conn)
+	}
+}
+
+func ListenServeUDP(handler UDPHandlerFunc, port int) error {
+	addr := fmt.Sprintf(":%d", port)
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	ln, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		return fmt.Errorf("failed to bind to port %d, %w", port, err)
+	}
+	log.Printf("server started successfully, running at port: %d\n", port)
+	buffer := make([]byte, 1024)
+	for {
+		//n, err := ln.Read(buffer)
+		n, remoteAddr, err := ln.ReadFromUDP(buffer)
+		log.Printf("got message: %q\n", buffer[:n])
+		if err != nil {
+			return err
+		}
+		response := handler(string(buffer[:n]))
+		if response == "" {
+			continue
+		}
+		_, _ = ln.WriteToUDP([]byte(response), remoteAddr)
+		log.Printf("send message: %q\n", response)
 	}
 }
 

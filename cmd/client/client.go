@@ -1,59 +1,57 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
 
 func main() {
-	conn, err := net.Dial("tcp", "localhost:8080")
+	targetAddr := "127.0.0.1:4242" // Destination server
+	localPort := "54321"           // Port to send from and listen on
+
+	// Resolve target UDP address
+	raddr, err := net.ResolveUDPAddr("udp", targetAddr)
 	if err != nil {
-		// handle error
+		fmt.Println("Error resolving target address:", err)
+		return
 	}
-	//buff := []byte{0x49, 0, 0, 0x30, 0x39, 0, 0, 0, 0x65}
-	//conn.Write(buff)
-	//buff = []byte{0x49, 0, 0, 0x30, 0x3a, 0, 0, 0, 0x66}
-	//conn.Write(buff)
-	//buff = []byte{0x49, 0, 0, 0x30, 0x3b, 0, 0, 0, 0x64}
-	//conn.Write(buff)
-	//buff = []byte{0x49, 0, 0, 0xa0, 0, 0, 0, 0, 0x5}
-	//conn.Write(buff)
-	//buff = []byte{0x51, 0, 0, 0x30, 0, 0, 0, 0x40, 0}
-	//conn.Write(buff)
-	//res := make([]byte, 4)
-	//conn.Read(res)
 
-	buff := []byte{0x49}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
+	// Bind to the specified local port
+	laddr, err := net.ResolveUDPAddr("udp", ":"+localPort)
+	if err != nil {
+		fmt.Println("Error resolving local address:", err)
+		return
+	}
 
-	buff = []byte{0, 0, 0x30, 0x39}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
+	// Create a UDP connection
+	conn, err := net.ListenUDP("udp", laddr)
+	if err != nil {
+		fmt.Println("Error binding to local port:", err)
+		return
+	}
+	defer conn.Close()
 
-	buff = []byte{0, 0, 0, 0x65}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
+	// Send a UDP packet
+	message := []byte("version")
+	_, err = conn.WriteToUDP(message, raddr)
+	if err != nil {
+		fmt.Println("Error sending UDP packet:", err)
+		return
+	}
+	fmt.Printf("Sent: %s → %s\n", message, targetAddr)
 
-	buff = []byte{0x49}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
+	// Set a timeout for receiving response
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-	buff = []byte{0, 0, 0x30, 0x39}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
+	// Buffer to receive response
+	buf := make([]byte, 1024)
+	n, addr, err := conn.ReadFromUDP(buf)
+	if err != nil {
+		fmt.Println("No response received:", err)
+		return
+	}
 
-	buff = []byte{0, 0, 0, 0x65}
-	conn.Write(buff)
-	time.Sleep(100 * time.Millisecond) // Introduce a delay
-	//
-	//buff = []byte{0x49}
-	//conn.Write(buff)
-	//
-	//buff = []byte{0x49}
-	//conn.Write(buff)
-
-	//for _, b := range res {
-	//	fmt.Printf("%x ", b)
-	//}
+	// Print received data
+	fmt.Printf("Received from %s: %s\n", addr, string(buf[:n]))
 }
