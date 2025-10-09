@@ -142,6 +142,7 @@ func encodeLine(line string, cipher []CipherOp, n *int) string {
 	for _, b := range []byte(line) {
 		eb := encode(b, cipher, *n)
 		res.WriteByte(eb)
+		*n++
 	}
 
 	return res.String()
