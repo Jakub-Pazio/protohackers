@@ -18,11 +18,16 @@ var portNumber = flag.Int("port", 4242, "Port number of server")
 
 func main() {
 	flag.Parse()
-	log.Fatal(pserver.ListenServe(handleConnection, *portNumber))
+	handler := pserver.WithMiddleware(
+		handleConnection,
+		pserver.LoggingMiddleware,
+	)
+	log.Fatal(pserver.ListenServe(handler, *portNumber))
 }
 
 func handleConnection(conn net.Conn) {
-	log.Println(111)
+	defer pserver.HandleConnShutdown(conn)
+
 	cipher, err := parseCipher(conn)
 	log.Printf("Cipher-preopt: %+v", cipher)
 	if err != nil {
