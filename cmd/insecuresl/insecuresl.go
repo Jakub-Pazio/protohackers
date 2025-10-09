@@ -49,10 +49,9 @@ func handleConnection(conn net.Conn) {
 
 	log.Printf("Cipher: %+v", cipher)
 
-	n := -1
+	n := 0
 	nOut := 0
 	for {
-		n += 1
 		log.Println("New Line from client")
 		line, err := decodeLine(conn, cipher, &n)
 		log.Println(line)
