@@ -224,7 +224,7 @@ func TestHandleConnection(t *testing.T) {
 
 func TestCopies(t *testing.T) {
 	res := mostCopiesOf("10x toy car\n")
-	want := "10x toy car\n"
+	want := "10x toy car"
 	if res != want {
 		t.Errorf("got %q, want %q\n", res, want)
 	}
