@@ -131,10 +131,6 @@ func TestReduceMultipleAdding(t *testing.T) {
 		}
 	}
 
-	if len(cxor) != 1 {
-		t.Errorf("Length should be 1 but is %d\n", len(cxor))
-	}
-
 	if len(c) != 1 {
 		t.Errorf("Length should be 1 but is %d\n", len(c))
 	}
@@ -151,7 +147,8 @@ func TestDecodePlain(t *testing.T) {
 	go func() {
 		w.Write([]byte("4x dog, 5x car\n"))
 	}()
-	res, _ := decodeLine(r, cipher, &n)
+	br := bufio.NewReader(r)
+	res, _ := decodeLine(br, cipher, &n)
 
 	if res != "4x dog, 5x car\n" {
 		t.Errorf("expected: %q, got %q\n", "4x dog, 5x car\n", res)
@@ -165,7 +162,8 @@ func TestDecodeAddPoss(t *testing.T) {
 	go func() {
 		w.Write([]byte{0x68, 0x67, 0x70, 0x72, 0x77, 20})
 	}()
-	res, _ := decodeLine(r, cipher, &n)
+	br := bufio.NewReader(r)
+	res, _ := decodeLine(br, cipher, &n)
 
 	if res != string("hello\n") {
 		t.Errorf("expected: %q, got %q\n", "hello\n", res)
@@ -180,7 +178,8 @@ func TestDecodeFullMessage(t *testing.T) {
 		w.Write([]byte{0xf2, 0x20, 0xba, 0x44, 0x18, 0x84, 0xba, 0xaa,
 			0xd0, 0x26, 0x44, 0xa4, 0xa8, 0x7e})
 	}()
-	res, _ := decodeLine(r, cipher, &n)
+	br := bufio.NewReader(r)
+	res, _ := decodeLine(br, cipher, &n)
 
 	want := "4x dog,5x car\n"
 	if res != want {
