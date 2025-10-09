@@ -194,7 +194,7 @@ func reduceCipher(cipher []CipherOp) ([]CipherOp, bool) {
 // input unchanged, the server must immediately disconnect
 // without sending any data back.
 func cipherCorrect(cipher []CipherOp) bool {
-	if len(cipher) == 0 {
+	if len(cipher) == 1 {
 		return false
 	}
 
