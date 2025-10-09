@@ -22,10 +22,14 @@ func ListenServe(handler HandlerFunc, port int) error {
 	log.Printf("server started successfully, running at port: %d\n", port)
 	for {
 		conn, err := ln.Accept()
+		log.Println("Accepted new connection")
 		if err != nil {
 			log.Printf("cannot accept connection: %v\n", err)
 		}
-		go handler(conn)
+		go func() {
+			handler(conn)
+			log.Println("End of connection")
+		}()
 	}
 }
 
