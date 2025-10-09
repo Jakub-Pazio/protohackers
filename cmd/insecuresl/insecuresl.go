@@ -49,9 +49,9 @@ func handleConnection(conn net.Conn) {
 
 	log.Printf("Cipher: %+v", cipher)
 
-	n := 0
-	nOut := 0
 	for {
+		n := 0
+		nOut := 0
 		log.Println("New Line from client")
 		line, err := decodeLine(conn, cipher, &n)
 		log.Println(line)
@@ -69,7 +69,6 @@ func handleConnection(conn net.Conn) {
 		}
 		conn.Write([]byte(encodedRes))
 		log.Println("End of line")
-		n--
 	}
 
 	conn.Close()
