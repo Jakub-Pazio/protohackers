@@ -98,7 +98,7 @@ func decode(b byte, cipher []CipherOp, n int) (byte, bool) {
 
 func decodeLine(r io.Reader, c []CipherOp, n *int) (string, error) {
 	log.Printf("Decoding line, start offset: %d\n", *n)
-	bs := make([]byte, 0)
+	bs := make([]byte, 0, 1000)
 	br := bufio.NewReader(r)
 	b, err := br.ReadByte()
 	if err != nil {
