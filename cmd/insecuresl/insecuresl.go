@@ -69,6 +69,7 @@ func handleConnection(conn net.Conn) {
 		}
 		conn.Write([]byte(encodedRes))
 		log.Println("End of line")
+		n--
 	}
 
 	conn.Close()
