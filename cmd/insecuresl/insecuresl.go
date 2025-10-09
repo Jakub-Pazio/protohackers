@@ -49,9 +49,9 @@ func handleConnection(conn net.Conn) {
 	log.Printf("Cipher: %+v", cipher)
 
 	reader := bufio.NewReader(conn)
+	n := 0
+	nOut := 0
 	for {
-		n := 0
-		nOut := 0
 		log.Println("New Line from client")
 		line, err := decodeLine(reader, cipher, &n)
 		log.Println(line)
