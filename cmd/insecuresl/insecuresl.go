@@ -320,12 +320,15 @@ func parseCipher(conn net.Conn) ([]CipherOp, error) {
 }
 
 func mostCopiesOf(line string) string {
-	topF := 0
+	topF := int64(0)
 	topV := ""
 	list := strings.Split(line, ",")
 	for _, item := range list {
 		parts := strings.Split(item, "x")
-		amount, _ := strconv.Atoi(parts[0])
+		amount, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse number: %v\n", err))
+		}
 		if amount > topF {
 			topF = amount
 			topV = strings.TrimSpace(parts[1])
