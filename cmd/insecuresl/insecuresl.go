@@ -106,14 +106,15 @@ func decodeLine(r io.Reader, c []CipherOp, n *int) (string, error) {
 	}
 	dec, end := decode(b, c, *n)
 	bs = append(bs, dec)
+	*n++
 	for !end {
-		*n++
 		b, err := br.ReadByte()
 		if err != nil {
 			return "", err
 		}
 		dec, end = decode(b, c, *n)
 		bs = append(bs, dec)
+		*n++
 	}
 	return string(bs), nil
 }
