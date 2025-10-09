@@ -34,6 +34,7 @@ func handleConnection(conn net.Conn) {
 	for change {
 		cipher, change = reduceCipher(cipher)
 	}
+	log.Printf("Cipher post-opt: %+v", cipher)
 
 	if !cipherCorrect(cipher) {
 		log.Println("Cipher is no-op, cannot continue")
