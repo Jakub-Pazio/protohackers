@@ -44,6 +44,7 @@ func handleConnection(conn net.Conn) {
 	if !cipherCorrect(cipher) {
 		log.Println("Cipher is no-op, cannot continue")
 		conn.Close()
+		return
 	}
 
 	log.Printf("Cipher: %+v", cipher)
@@ -55,7 +56,7 @@ func handleConnection(conn net.Conn) {
 		line, err := decodeLine(conn, cipher, &n)
 		log.Println(line)
 		if err != nil {
-			log.Println("Closing connction")
+			log.Printf("Closing connction, err: %v\n", err)
 			break
 		}
 		res := mostCopiesOf(line)
@@ -63,6 +64,7 @@ func handleConnection(conn net.Conn) {
 		encodedRes := encodeLine(res, cipher, &nOut)
 		//Cheat to see if cipher is no-op
 		if encodedRes == res {
+			fmt.Println("response is same as request, dropping connection")
 			break
 		}
 		conn.Write([]byte(encodedRes))
@@ -96,7 +98,7 @@ func decode(b byte, cipher []CipherOp, n int) (byte, bool) {
 
 func decodeLine(r io.Reader, c []CipherOp, n *int) (string, error) {
 	log.Printf("Decoding line, start offset: %d\n", *n)
-	bs := make([]byte, 0)
+	bs := make([]byte, 2000)
 	br := bufio.NewReader(r)
 	b, err := br.ReadByte()
 	if err != nil {
