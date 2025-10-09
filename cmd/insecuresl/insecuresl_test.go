@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -18,7 +19,7 @@ func TestParseEmptyCipher(t *testing.T) {
 		t.Error("should parse empty cipher\n")
 	}
 
-	if len(c) != 0 {
+	if len(c) != 1 {
 		t.Errorf("cipher should be empty but is %d long\n", len(c))
 	}
 }
@@ -32,7 +33,7 @@ func TestParseGoodCipher(t *testing.T) {
 		t.Error("should parse incorrect cipher\n")
 	}
 
-	if len(c) != 2 {
+	if len(c) != 3 {
 		t.Errorf("cipher should be 2 ops long but is %d long\n", len(c))
 	}
 
@@ -78,6 +79,38 @@ func TestReduceReverseCipher(t *testing.T) {
 		t.Errorf("The slice should have just end but has: %+v\n", ci)
 	}
 
+}
+
+func TestReduceMultipleAdding(t *testing.T) {
+	c := []CipherOp{
+		{Opid: Add, Value: 103},
+		{Opid: Add, Value: 240},
+		{Opid: Add, Value: 252},
+		{Opid: Add, Value: 173},
+		{Opid: End},
+	}
+
+	sum := byte(0)
+
+	for _, v := range c {
+		sum += v.Value
+	}
+
+	if sum != 0 {
+		fmt.Printf("Sum should be 0 but is %d\n", sum)
+	}
+
+	change := true
+	for {
+		c, change = reduceCipher(c)
+		if !change {
+			break
+		}
+	}
+
+	if len(c) != 1 {
+		t.Errorf("Length should be 1 but is %d\n", len(c))
+	}
 }
 
 func TestDecodePlain(t *testing.T) {

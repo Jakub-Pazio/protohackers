@@ -142,12 +142,50 @@ func reduceCipher(cipher []CipherOp) ([]CipherOp, bool) {
 		return cipher, false
 	}
 
+	contAdd := make([]int, 0)
+	contXor := make([]int, 0)
+
 	for i, c := range cipher {
 		if c.Opid == Add && c.Value == 0 {
 			return slices.Delete(cipher, i, i+1), true
 		}
 		if c.Opid == Xor && c.Value == 0 {
 			return slices.Delete(cipher, i, i+1), true
+		}
+		if c.Opid != Xor {
+			if len(contXor) > 0 {
+				sum := byte(0)
+				for _, v := range contXor {
+					sum += byte(v)
+				}
+				if sum == 0 {
+					return slices.Delete(cipher, i-len(contXor), i), true
+				} else {
+					contXor = nil
+				}
+			}
+		} else {
+			contXor = append(contXor, int(c.Value))
+		}
+		if c.Opid != Add {
+			// this could be the end of ADD's that sum to 0, we need to check
+			// and remove them from cipher
+			if len(contAdd) > 0 {
+				log.Printf("summing...")
+				sum := byte(0)
+				for _, v := range contAdd {
+					sum += byte(v)
+				}
+				log.Printf("sum is: %d\n", sum)
+				if sum == 0 {
+					return slices.Delete(cipher, i-len(contAdd), i), true
+				} else {
+					contAdd = nil
+				}
+			}
+		} else {
+			log.Printf("Adding %d to list\n", c.Value)
+			contAdd = append(contAdd, int(c.Value))
 		}
 	}
 
@@ -240,6 +278,7 @@ func parseCipher(conn net.Conn) ([]CipherOp, error) {
 
 		switch Opid(first) {
 		case End:
+			res = append(res, CipherOp{Opid: End})
 			loop = false
 		case Reverse:
 			res = append(res, CipherOp{Opid: Reverse})
@@ -263,7 +302,6 @@ func parseCipher(conn net.Conn) ([]CipherOp, error) {
 			return res, fmt.Errorf("could not parse, opcode %x", first)
 		}
 	}
-	res = append(res, CipherOp{Opid: End})
 
 	return res, nil
 }
