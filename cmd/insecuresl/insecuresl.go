@@ -56,6 +56,10 @@ func handleConnection(conn net.Conn) {
 		res := mostCopiesOf(line)
 		fmt.Printf("Response to send: %q\n", res)
 		encodedRes := encodeLine(res, cipher, &nOut)
+		//Cheat to see if cipher is no-op
+		if encodedRes == res {
+			break
+		}
 		conn.Write([]byte(encodedRes))
 		log.Println("End of line")
 	}
@@ -159,6 +163,7 @@ func reduceCipher(cipher []CipherOp) ([]CipherOp, bool) {
 				for _, v := range contXor {
 					sum += byte(v)
 				}
+				log.Printf("XOR SUM: %d\n", sum)
 				if sum == 0 {
 					return slices.Delete(cipher, i-len(contXor), i), true
 				} else {

@@ -90,10 +90,26 @@ func TestReduceMultipleAdding(t *testing.T) {
 		{Opid: End},
 	}
 
+	cxor := []CipherOp{
+		{Opid: Xor, Value: 251},
+		{Opid: Xor, Value: 216},
+		{Opid: Xor, Value: 8},
+		{Opid: Xor, Value: 18},
+		{Opid: End},
+	}
+
 	sum := byte(0)
+	sum2 := byte(0)
 
 	for _, v := range c {
 		sum += v.Value
+	}
+
+	for _, v := range cxor {
+		sum2 += v.Value
+	}
+	if sum2 != 0 {
+		fmt.Printf("Sum XOR should be 0 but is %d\n", sum2)
 	}
 
 	if sum != 0 {
@@ -108,10 +124,25 @@ func TestReduceMultipleAdding(t *testing.T) {
 		}
 	}
 
+	for {
+		cxor, change = reduceCipher(cxor)
+		if !change {
+			break
+		}
+	}
+
+	if len(cxor) != 1 {
+		t.Errorf("Length should be 1 but is %d\n", len(cxor))
+	}
+
 	if len(c) != 1 {
 		t.Errorf("Length should be 1 but is %d\n", len(c))
 	}
 }
+
+// Thu Oct  9 13:14:06 2025 UTC] [3noopciphers.test] FAIL:server responded to a
+// request with the no-op cipher (it should have disconnected the client):
+// add(0),xor(116),xorpos,xor(70),xor(84),xor(26),xor(124),xorpos,add(0)
 
 func TestDecodePlain(t *testing.T) {
 	cipher := []CipherOp{{Opid: End}}
