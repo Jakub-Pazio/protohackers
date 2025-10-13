@@ -132,7 +132,9 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			})
 			err := s.js.handleDelete(req)
 			if err != nil {
-
+				writeStatusResponse(conn, "ok")
+			} else {
+				writeError(conn)
 			}
 
 		case "abort":
