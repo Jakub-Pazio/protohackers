@@ -61,6 +61,7 @@ func (js *JobService) checkWaitJob(job *JobItem, queues []string) bool {
 		for _, qn := range waitEntry.queues {
 			delete(js.waitreqistry[qn], clientId)
 		}
+		js.inprogresmap[job.Id] = job
 		waitEntry.ch <- job
 		return true
 	}
@@ -89,6 +90,10 @@ func (js *JobService) handleAbort(req request) bool {
 	if !ok {
 		// job was removed by some other user, we must send "no-job"
 		return false
+	}
+
+	if ok := js.checkWaitJob(job, []string{job.Queue}); ok {
+		return true
 	}
 
 	delete(js.inprogresmap, job.Id)
