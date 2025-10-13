@@ -82,7 +82,6 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 	}()
 
 	defer pserver.HandleConnShutdown(conn)
-	log.Println("Starting server...")
 
 	br := bufio.NewReader(conn)
 
@@ -101,16 +100,14 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			writeError(conn)
 			continue
 		}
-		fmt.Printf("Request: %+v\n", req)
+		log.Printf("Request: %+v\n", req)
 
 		// Maybe here we could cast each request to its type that only has
 		// the fields that are in the request
 		switch req.Request {
 		case "put":
-			log.Println("HERE")
 			id := s.js.handlePut(req)
 			writeIdResponse(conn, id)
-			log.Println("DONE")
 
 		case "get":
 			job := s.js.handleGet(req)
