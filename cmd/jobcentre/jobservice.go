@@ -45,7 +45,6 @@ func (js *JobService) registerWait(queues []string, clientId int) chan *JobItem 
 }
 
 func (js *JobService) checkWaitJob(job *JobItem, queues []string) bool {
-	log.Println("here")
 	for _, queuename := range queues {
 		entry, ok := js.waitreqistry[queuename]
 		if !ok {
@@ -66,7 +65,6 @@ func (js *JobService) checkWaitJob(job *JobItem, queues []string) bool {
 		return true
 	}
 
-	log.Println("AFTERhere")
 	return false
 }
 
@@ -163,7 +161,6 @@ func (js *JobService) handleGet(req request) *JobItem {
 }
 
 func (js *JobService) moveToInProgress(job *JobItem) {
-	log.Printf("Job to work: %+v\n", job)
 
 	delete(js.jobmap, job.Id)
 	js.inprogresmap[job.Id] = job
