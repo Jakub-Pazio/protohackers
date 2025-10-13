@@ -206,10 +206,12 @@ func (js *JobService) abortJobs(ids []int) {
 			log.Printf("No job id: %d found to remove\n", id)
 			continue
 		}
-		log.Printf("Aborting job %+v\n")
+		log.Printf("Aborting job %+v\n", job)
 		delete(js.inprogresmap, job.Id)
 		js.jobmap[job.Id] = job
 		queue := js.getQueue(job.Queue)
+		log.Printf("Queue size before: %d\n", len(*queue))
 		heap.Push(queue, job)
+		log.Printf("Queue size after: %d\n", len(*queue))
 	}
 }
