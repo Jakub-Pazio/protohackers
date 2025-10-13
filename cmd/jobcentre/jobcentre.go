@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"slices"
 	"sync/atomic"
 )
 
@@ -126,7 +127,13 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			writeJobResponse(conn, job)
 
 		case "delete":
-			s.js.handleDelete(req)
+			slices.DeleteFunc(workingSlice, func(id int) bool {
+				return id == req.Id
+			})
+			err := s.js.handleDelete(req)
+			if err != nil {
+
+			}
 
 		case "abort":
 			ok := s.js.handleAbort(req)

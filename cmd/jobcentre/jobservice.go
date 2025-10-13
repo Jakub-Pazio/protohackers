@@ -211,7 +211,13 @@ func (js *JobService) abortJobs(ids []int) {
 		js.jobmap[job.Id] = job
 		queue := js.getQueue(job.Queue)
 		log.Printf("Queue size before: %d\n", len(*queue))
-		heap.Push(queue, job)
+		arr := []string{job.Queue}
+		ok = js.checkWaitJob(job, arr)
+		if !ok {
+			heap.Push(queue, job)
+		} else {
+			log.Printf("Job %d has been assigned to other client\n", job.Id)
+		}
 		log.Printf("Queue size after: %d\n", len(*queue))
 	}
 }
