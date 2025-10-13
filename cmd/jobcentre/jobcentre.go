@@ -75,8 +75,11 @@ type response struct {
 func (s *QueueServer) handleConnection(conn net.Conn) {
 	var workingSlice []int
 	clientId := newClientId()
+	log.Printf("Client %d connected\n", clientId)
 
 	defer func() {
+		log.Printf("Client %d disconecting\n", clientId)
+		log.Printf("remocing jobs with id %+v\n", workingSlice)
 		s.js.abortJobs(workingSlice)
 		s.js.removeWait(clientId)
 	}()
@@ -153,6 +156,7 @@ func writeJobResponse(conn net.Conn, job *JobItem) {
 		Queue:  job.Queue,
 	}
 	b, _ := json.Marshal(r)
+	log.Printf("Response: %+v\n", r)
 
 	conn.Write(b)
 	conn.Write([]byte("\n"))
@@ -164,6 +168,7 @@ func writeNoJobResponse(conn net.Conn) {
 	}
 
 	r := response{Status: "no-job"}
+	log.Printf("Response: %+v\n", r)
 	b, _ := json.Marshal(r)
 
 	conn.Write(b)
@@ -182,6 +187,7 @@ type StatusResponse struct {
 func writeIdResponse(conn net.Conn, id int) {
 
 	r := IdReponse{Status: "ok", Id: id}
+	log.Printf("Response: %+v\n", r)
 
 	b, _ := json.Marshal(r)
 	conn.Write(b)
@@ -190,6 +196,7 @@ func writeIdResponse(conn net.Conn, id int) {
 
 func writeStatusResponse(conn net.Conn, status string) {
 	r := StatusResponse{Status: status}
+	log.Printf("Response: %+v\n", r)
 
 	b, _ := json.Marshal(r)
 	conn.Write(b)

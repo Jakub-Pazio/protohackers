@@ -203,8 +203,10 @@ func (js *JobService) abortJobs(ids []int) {
 	for _, id := range ids {
 		job, ok := js.inprogresmap[id]
 		if !ok {
+			log.Printf("No job id: %d found to remove\n", id)
 			continue
 		}
+		log.Printf("Aborting job %+v\n")
 		delete(js.inprogresmap, job.Id)
 		js.jobmap[job.Id] = job
 		queue := js.getQueue(job.Queue)
