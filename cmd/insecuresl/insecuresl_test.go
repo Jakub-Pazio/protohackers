@@ -136,10 +136,6 @@ func TestReduceMultipleAdding(t *testing.T) {
 	}
 }
 
-// Thu Oct  9 13:14:06 2025 UTC] [3noopciphers.test] FAIL:server responded to a
-// request with the no-op cipher (it should have disconnected the client):
-// add(0),xor(116),xorpos,xor(70),xor(84),xor(26),xor(124),xorpos,add(0)
-
 func TestDecodePlain(t *testing.T) {
 	cipher := []CipherOp{{Opid: End}}
 	r, w := io.Pipe()
