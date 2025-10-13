@@ -79,7 +79,7 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 
 	defer func() {
 		log.Printf("Client %d disconecting\n", clientId)
-		log.Printf("remocing jobs with id %+v\n", workingSlice)
+		log.Printf("removing jobs with id %+v\n", workingSlice)
 		s.js.abortJobs(workingSlice)
 		s.js.removeWait(clientId)
 	}()
@@ -122,7 +122,7 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 				ch := s.js.registerWait(req.Queues, clientId)
 				job = <-ch
 			}
-			workingSlice = append(workingSlice, req.Id)
+			workingSlice = append(workingSlice, job.Id)
 			writeJobResponse(conn, job)
 
 		case "delete":
