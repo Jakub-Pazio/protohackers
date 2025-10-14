@@ -22,12 +22,9 @@ type JobService struct {
 }
 
 func (js *JobService) Initialize() {
-	log.Println("Started")
 	for {
-		log.Println("Waiting for request")
 		select {
 		case f := <-js.ActionChan:
-			log.Println("Func call")
 			f()
 		case <-js.StopChan:
 			return
@@ -102,72 +99,48 @@ func (js *JobService) removeWait(clientId int) {
 }
 
 func (js *JobService) HandleDisconnect(workingSlice []int, clientId int) {
-
-	c := make(chan struct{})
-
-	js.ActionChan <- func() {
-		js.abortJobs(workingSlice)
-		js.removeWait(clientId)
-		c <- struct{}{}
-	}
-
-	<-c
-
+	js.abortJobs(workingSlice)
+	js.removeWait(clientId)
 }
 
 func (js *JobService) HandleAbort(req request) bool {
-	c := make(chan bool)
+	//TODO: check if current user has this job ID in its workslice
 
-	js.ActionChan <- func() {
-		job, ok := js.inprogresmap[req.Id]
-		if !ok {
-			// job was removed by some other user, we must send "no-job"
-			c <- false
-			return
-		}
-
-		if ok := js.checkWaitJob(job, []string{job.Queue}); ok {
-			c <- true
-			return
-		}
-
-		delete(js.inprogresmap, job.Id)
-		js.jobmap[job.Id] = job
-
-		queue := js.getQueue(job.Queue)
-		heap.Push(queue, job)
-
-		c <- true
+	job, ok := js.inprogresmap[req.Id]
+	if !ok {
+		// job was removed by some other user, we must send "no-job"
+		return false
 	}
 
-	return <-c
+	if ok := js.checkWaitJob(job, []string{job.Queue}); ok {
+		return true
+	}
+
+	delete(js.inprogresmap, job.Id)
+	js.jobmap[job.Id] = job
+
+	queue := js.getQueue(job.Queue)
+	heap.Push(queue, job)
+
+	return true
 }
 
 func (js *JobService) HandleDelete(req request) error {
-
-	c := make(chan error)
-
-	js.ActionChan <- func() {
-
-		job, ok := js.jobmap[req.Id]
-		if ok {
-			delete(js.jobmap, req.Id)
-			queue := js.queuemap[job.Queue]
-			heap.Remove(queue, job.Index)
-			c <- nil
-			return
-		}
-
-		job, ok = js.inprogresmap[req.Id]
-		if ok {
-			delete(js.inprogresmap, req.Id)
-			c <- nil
-			return
-		}
-		c <- errors.New("no job to delete")
+	//TODO: Remove job from clients work slice
+	job, ok := js.jobmap[req.Id]
+	if ok {
+		delete(js.jobmap, req.Id)
+		queue := js.queuemap[job.Queue]
+		heap.Remove(queue, job.Index)
+		return nil
 	}
 
-	return <-c
+	job, ok = js.inprogresmap[req.Id]
+	if ok {
+		delete(js.inprogresmap, req.Id)
+		return nil
+	}
+	return errors.New("no job to delete")
 }
 
 func (js *JobService) HandlePut(req request) int {
@@ -186,8 +159,7 @@ func (js *JobService) HandlePut(req request) int {
 		}
 
 		if ok := js.checkWaitJob(job, req.Queues); ok {
-			c <- id
-			return
+			return id
 		}
 
 		queue := js.getQueue(qname)
@@ -198,10 +170,8 @@ func (js *JobService) HandlePut(req request) int {
 		heap.Push(queue, job)
 		js.jobmap[id] = job
 
-		c <- id
+		return id
 	}
-
-	return <-c
 
 }
 
@@ -222,11 +192,9 @@ func (js *JobService) HandleGet(req request, clientId int) (*JobItem, chan *JobI
 		if len(jobs) < 1 {
 			if req.Wait == false {
 				c <- result{nil, nil}
-				return
 			}
 			ch := js.registerWait(req.Queues, clientId)
 			c <- result{nil, ch}
-			return
 		}
 
 		job := maxPrioJob(jobs)

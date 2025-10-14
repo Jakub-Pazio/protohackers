@@ -39,8 +39,12 @@ func main() {
 			inprogresmap: make(JobMap),
 			queuemap:     make(QueueMap),
 			waitreqistry: make(WaitRegistry),
+
+			ActionChan: make(chan func()),
+			StopChan:   make(chan struct{}),
 		},
 	}
+	go qs.js.Initialize()
 	handler := pserver.WithMiddleware(
 		qs.handleConnection,
 		pserver.LoggingMiddleware,
@@ -81,11 +85,9 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 	defer func() {
 		log.Printf("Client %d disconecting\n", clientId)
 		log.Printf("removing jobs with id %+v\n", workingSlice)
-		s.js.abortJobs(workingSlice)
-		s.js.removeWait(clientId)
+		s.js.HandleDisconnect(workingSlice, clientId)
+		pserver.HandleConnShutdown(conn)
 	}()
-
-	defer pserver.HandleConnShutdown(conn)
 
 	br := bufio.NewReader(conn)
 
@@ -110,17 +112,16 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 		// the fields that are in the request
 		switch req.Request {
 		case "put":
-			id := s.js.handlePut(req)
+			id := s.js.HandlePut(req)
 			writeIdResponse(conn, id)
 
 		case "get":
-			job := s.js.handleGet(req)
+			job, ch := s.js.HandleGet(req, clientId)
 			if job == nil {
-				if !req.Wait {
+				if ch == nil {
 					writeNoJobResponse(conn)
 					continue
 				}
-				ch := s.js.registerWait(req.Queues, clientId)
 				job = <-ch
 			}
 			workingSlice = append(workingSlice, job.Id)
@@ -130,7 +131,7 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			slices.DeleteFunc(workingSlice, func(id int) bool {
 				return id == req.Id
 			})
-			err := s.js.handleDelete(req)
+			err := s.js.HandleDelete(req)
 			if err != nil {
 				writeError(conn)
 			} else {
@@ -138,7 +139,10 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			}
 
 		case "abort":
-			ok := s.js.handleAbort(req)
+			if !slices.Contains(workingSlice, req.Id) {
+				writeStatusResponse(conn, "no-job")
+			}
+			ok := s.js.HandleAbort(req)
 			if ok {
 				writeStatusResponse(conn, "ok")
 			} else {
