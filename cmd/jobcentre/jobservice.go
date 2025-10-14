@@ -71,7 +71,12 @@ func (js *JobService) checkWaitJob(job *JobItem, queues []string) bool {
 		var clientId int
 		var waitEntry rEntry
 		for clientId, waitEntry = range entry {
-			break
+			if clientId != 0 {
+				break
+			}
+		}
+		if clientId == 0 {
+			continue
 		}
 		fmt.Printf("clientId: %v\n", clientId)
 		fmt.Printf("waitEntry: %v\n", waitEntry)
