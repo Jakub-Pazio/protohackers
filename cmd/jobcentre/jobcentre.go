@@ -128,7 +128,7 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 			writeJobResponse(conn, job)
 
 		case "delete":
-			slices.DeleteFunc(workingSlice, func(id int) bool {
+			workingSlice = slices.DeleteFunc(workingSlice, func(id int) bool {
 				return id == req.Id
 			})
 			err := s.js.HandleDelete(req)
