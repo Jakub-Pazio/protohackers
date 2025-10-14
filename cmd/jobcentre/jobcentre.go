@@ -141,12 +141,13 @@ func (s *QueueServer) handleConnection(conn net.Conn) {
 		case "abort":
 			if !slices.Contains(workingSlice, req.Id) {
 				writeStatusResponse(conn, "no-job")
-			}
-			ok := s.js.HandleAbort(req)
-			if ok {
-				writeStatusResponse(conn, "ok")
 			} else {
-				writeStatusResponse(conn, "no-job")
+				ok := s.js.HandleAbort(req)
+				if ok {
+					writeStatusResponse(conn, "ok")
+				} else {
+					writeStatusResponse(conn, "no-job")
+				}
 			}
 		}
 	}
