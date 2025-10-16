@@ -101,7 +101,7 @@ func TestValidName(t *testing.T) {
 
 	good = IsPrintableASCII(name)
 
-	if good {
-		t.Errorf("This file %q is not valid\n", name)
+	if !good {
+		t.Errorf("This file %q is valid\n", name)
 	}
 }

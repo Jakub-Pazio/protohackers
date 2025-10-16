@@ -365,7 +365,7 @@ func IsPrintableASCII(s string) bool {
 			}
 			prevSlash = true
 		case c >= '0' && c <= '9':
-			prevSlash = true
+			prevSlash = false
 		case c == '.':
 			prevSlash = false
 		default:
