@@ -333,7 +333,9 @@ func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) 
 		content = string(buf)
 	}
 
-	return 0, illegalFileContentError
+	if !IsLegalContent(content) {
+		return 0, illegalFileContentError
+	}
 
 	return s.root.AddFile(filename, content)
 }
