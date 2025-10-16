@@ -20,6 +20,8 @@ func main() {
 
 	server := &StorageServer{root: CreateRoot()}
 
+	go server.Init()
+
 	handler := pserver.WithMiddleware(
 		server.handleConnection,
 		pserver.LoggingMiddleware,
