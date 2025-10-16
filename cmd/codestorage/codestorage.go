@@ -138,6 +138,11 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 				continue
 			}
 
+			if args[0][0] != '/' {
+				writeError(conn, illegalFileNameError, &globalWasError)
+				continue
+			}
+
 			if !IsPrintableASCII(args[0]) {
 				log.Printf("IS THIS ERROR?? %q\n", args[0])
 				writeError(conn, illegalFileNameError, &globalWasError)
