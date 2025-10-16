@@ -17,18 +17,16 @@ func ListenServe(handler HandlerFunc, port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to bind to port %d, %w", port, err)
+		return fmt.Errorf("Failed to bind to port %d, %w", port, err)
 	}
-	log.Printf("server started successfully, running at port: %d\n", port)
+	log.Printf("Server started successfully, running at port: %d\n", port)
 	for {
 		conn, err := ln.Accept()
-		log.Println("Accepted new connection")
 		if err != nil {
-			log.Printf("cannot accept connection: %v\n", err)
+			log.Printf("Cannot accept connection: %v\n", err)
 		}
 		go func() {
 			handler(conn)
-			log.Println("End of connection")
 		}()
 	}
 }
@@ -67,17 +65,17 @@ func WithMiddleware(handler HandlerFunc, ms ...Middleware) HandlerFunc {
 
 func LoggingMiddleware(next HandlerFunc) HandlerFunc {
 	return func(conn net.Conn) {
-		log.Printf("new connection from: %s\n", conn.RemoteAddr().String())
+		log.Printf("New connection from: %s\n", conn.RemoteAddr().String())
 		next(conn)
-		log.Printf("end of connection from :%s\n", conn.RemoteAddr().String())
+		log.Printf("End of connection from :%s\n", conn.RemoteAddr().String())
 	}
 }
 
 func HandleConnShutdown(conn net.Conn) {
-	log.Println("closing connection")
+	log.Println("Closing connection")
 	err := conn.Close()
 	if err != nil {
-		log.Printf("error when closing connection: %v\n", err)
+		log.Printf("Error when closing connection: %v\n", err)
 	}
-	log.Println("connection closed")
+	log.Println("Connection closed")
 }
