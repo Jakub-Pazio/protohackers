@@ -95,6 +95,11 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			fileName := args[0]
 			fileName = strings.TrimSpace(fileName)
 
+			if fileName[0] != '/' {
+				writeError(conn, illegalFileNameError, &globalWasError)
+				continue
+			}
+
 			if !IsPrintableASCII(fileName) {
 				writeError(conn, illegalFileNameError, &globalWasError)
 				continue
