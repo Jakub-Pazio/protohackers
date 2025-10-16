@@ -454,7 +454,7 @@ func IsPrintableASCII(s string) bool {
 
 func IsLegalContent(s string) bool {
 	for _, r := range s {
-		if !unicode.IsPrint(r) {
+		if !unicode.IsPrint(r) && !unicode.IsSpace(r) {
 			return false
 		}
 	}
