@@ -95,7 +95,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			fileName := args[0]
 			fileName = strings.TrimSpace(fileName)
 
-			if fileName[0] != '/' {
+			if fileName[0] != '/' || args[0][len(args[0])-1] == '/' {
 				writeError(conn, illegalFileNameError, &globalWasError)
 				continue
 			}
@@ -138,7 +138,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 				continue
 			}
 
-			if args[0][0] != '/' {
+			if args[0][0] != '/' || args[0][len(args[0])-1] == '/' {
 				writeError(conn, illegalFileNameError, &globalWasError)
 				continue
 			}
