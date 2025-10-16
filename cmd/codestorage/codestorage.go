@@ -346,6 +346,8 @@ func readLine(br *bufio.Reader) (string, error) {
 func writeError(conn net.Conn, err error) {
 	msg := fmt.Sprintf("ERR %s\n", err.Error())
 
+	log.Printf("Returning error: %q", msg)
+
 	conn.Write([]byte(msg))
 	globalWasError = true
 }
