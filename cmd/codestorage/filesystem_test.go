@@ -96,4 +96,12 @@ func TestValidName(t *testing.T) {
 	if good {
 		t.Errorf("This file %q is not valid\n", name)
 	}
+
+	name = "/kilo.0001/LICENSE"
+
+	good = IsPrintableASCII(name)
+
+	if good {
+		t.Errorf("This file %q is not valid\n", name)
+	}
 }
