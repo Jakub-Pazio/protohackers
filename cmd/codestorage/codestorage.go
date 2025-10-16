@@ -30,8 +30,6 @@ func main() {
 	log.Fatal(pserver.ListenServe(handler, *portNumber))
 }
 
-var globalWasError = false
-
 var noSuchRevisionError = fmt.Errorf("no such revision")
 var noSuchFileError = fmt.Errorf("no such file")
 var illegalFileNameError = fmt.Errorf("illegal file name")
@@ -56,6 +54,7 @@ func (s *StorageServer) Init() {
 
 func (s *StorageServer) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
+	var globalWasError = false
 
 	for {
 		fmt.Printf("s.root: %v\n", s.root)
@@ -75,7 +74,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 		method, err := ParseMethod(first)
 
 		if err != nil {
-			writeError(conn, err)
+			writeError(conn, err, &globalWasError)
 			conn.Close()
 			return
 		}
@@ -95,13 +94,13 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			fileName = strings.TrimSpace(fileName)
 
 			if !IsPrintableASCII(fileName) {
-				writeError(conn, illegalFileNameError)
+				writeError(conn, illegalFileNameError, &globalWasError)
 				continue
 			}
 
 			revisions, err := s.HandleGet(fileName, s.root)
 			if err != nil {
-				writeError(conn, err)
+				writeError(conn, err, &globalWasError)
 				continue
 			}
 
@@ -117,7 +116,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			}
 
 			if len(revisions) < revision || revision < 1 {
-				writeError(conn, noSuchRevisionError)
+				writeError(conn, noSuchRevisionError, &globalWasError)
 				continue
 			}
 
@@ -134,7 +133,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 
 			if !IsPrintableASCII(args[0]) {
 				log.Printf("IS THIS ERROR?? %q\n", args[0])
-				writeError(conn, illegalFileNameError)
+				writeError(conn, illegalFileNameError, &globalWasError)
 				continue
 			}
 
@@ -142,7 +141,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 
 			rev, err := s.HandlePut(args, br)
 			if err != nil {
-				writeError(conn, err)
+				writeError(conn, err, &globalWasError)
 				continue
 			}
 			writeRevision(rev, conn)
@@ -154,7 +153,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			}
 
 			if !IsPrintableASCII(args[0]) {
-				writeError(conn, illegalDirectoryNameError)
+				writeError(conn, illegalDirectoryNameError, &globalWasError)
 				continue
 			}
 
@@ -408,13 +407,13 @@ func readLine(br *bufio.Reader) (string, error) {
 	return br.ReadString('\n')
 }
 
-func writeError(conn net.Conn, err error) {
+func writeError(conn net.Conn, err error, globalWasError *bool) {
 	msg := fmt.Sprintf("ERR %s\n", err.Error())
 
 	log.Printf("Returning error: %q", msg)
 
 	conn.Write([]byte(msg))
-	globalWasError = true
+	*globalWasError = true
 }
 
 func IsPrintableASCII(s string) bool {
