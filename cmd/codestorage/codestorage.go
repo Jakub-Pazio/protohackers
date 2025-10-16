@@ -82,8 +82,10 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 
 		switch method {
 		case HelpMethod:
+			log.Printf("REQ: %s, %v END\n", method, args)
 			writeHelpMessage(conn)
 		case GetMethod:
+			log.Printf("REQ: %s, %v END\n", method, args)
 			if len(args) != 1 && len(args) != 2 {
 				writeUsageMessage(conn, method)
 				continue
@@ -122,6 +124,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			writeFile(conn, revisions[revision-1])
 
 		case PutMethod:
+			log.Printf("REQ: %s, %v END\n", method, args)
 			log.Printf("put args: %d\n", len(args))
 			log.Printf("%+v\n", args)
 			if !(len(args) == 1 || len(args) == 2) {
@@ -144,6 +147,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 			}
 			writeRevision(rev, conn)
 		case ListMethod:
+			log.Printf("REQ: %s, %v END\n", method, args)
 			if len(args) != 1 {
 				writeUsageMessage(conn, method)
 				continue
