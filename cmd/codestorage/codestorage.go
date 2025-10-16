@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var portNumber = flag.Int("port", 4242, "Port number of server")
@@ -34,6 +35,7 @@ var noSuchRevisionError = fmt.Errorf("no such revision")
 var noSuchFileError = fmt.Errorf("no such file")
 var illegalFileNameError = fmt.Errorf("illegal file name")
 var illegalDirectoryNameError = fmt.Errorf("illegal dir name")
+var illegalFileContentError = fmt.Errorf("illegal file content")
 
 type StorageServer struct {
 	root Node
@@ -331,6 +333,8 @@ func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) 
 		content = string(buf)
 	}
 
+	return 0, illegalFileContentError
+
 	return s.root.AddFile(filename, content)
 }
 
@@ -439,6 +443,15 @@ func IsPrintableASCII(s string) bool {
 		case c == '-':
 			prevSlash = false
 		default:
+			return false
+		}
+	}
+	return true
+}
+
+func IsLegalContent(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
 			return false
 		}
 	}
