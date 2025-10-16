@@ -334,6 +334,7 @@ func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) 
 	}
 
 	if !IsLegalContent(content) {
+		log.Printf("Illegal content %q\n", content)
 		return 0, illegalFileContentError
 	}
 
