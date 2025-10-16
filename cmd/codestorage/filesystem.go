@@ -46,6 +46,9 @@ func (n *Node) AddDirectory(name string) *Node {
 }
 
 func (n *Node) AddRevision(content string) {
+	if content == n.Revisions[len(n.Revisions)-1] {
+		return
+	}
 	n.Revisions = append(n.Revisions, content)
 }
 
