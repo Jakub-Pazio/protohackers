@@ -37,6 +37,16 @@ var illegalDirectoryNameError = fmt.Errorf("illegal dir name")
 
 type StorageServer struct {
 	root Node
+
+	// https://youtu.be/LHe1Cb_Ud_M?si=bQHiCCxIlEp3LTnA&t=410
+	ActionChan chan func()
+}
+
+func (s *StorageServer) Init() {
+	for {
+		f := <-s.ActionChan
+		f()
+	}
 }
 
 func (s *StorageServer) handleConnection(conn net.Conn) {
@@ -82,7 +92,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 				continue
 			}
 
-			revisions, err := s.handleGet(fileName, s.root)
+			revisions, err := s.HandleGet(fileName, s.root)
 			if err != nil {
 				writeError(conn, err)
 				continue
@@ -122,7 +132,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 
 			log.Printf("%q was legal\n", args[0])
 
-			rev, err := s.handlePut(args, br)
+			rev, err := s.HandlePut(args, br)
 			if err != nil {
 				writeError(conn, err)
 				continue
@@ -139,7 +149,7 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 				continue
 			}
 
-			entries := s.handleList(args, s.root)
+			entries := s.HandleList(args, s.root)
 			slices.Sort(entries)
 
 			writeOkSize(conn, len(entries))
@@ -197,6 +207,16 @@ func writeEntries(conn net.Conn, entries []string) {
 	}
 }
 
+func (s *StorageServer) HandleList(args []string, n Node) []string {
+	ch := make(chan []string)
+
+	s.ActionChan <- func() {
+		ch <- s.handleList(args, n)
+	}
+
+	return <-ch
+}
+
 func (s *StorageServer) handleList(args []string, n Node) []string {
 	dir := args[0]
 	dir = strings.TrimSpace(dir)
@@ -252,6 +272,24 @@ func (s *StorageServer) handleList(args []string, n Node) []string {
 	return []string{}
 }
 
+func (s *StorageServer) HandlePut(args []string, br *bufio.Reader) (int, error) {
+	type result struct {
+		i   int
+		err error
+	}
+
+	ch := make(chan result)
+
+	s.ActionChan <- func() {
+		i, err := s.handlePut(args, br)
+		ch <- result{i, err}
+	}
+
+	res := <-ch
+
+	return res.i, res.err
+}
+
 func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) {
 	filename := args[0]
 	var lenInt int
@@ -288,7 +326,25 @@ func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) 
 	return s.root.AddFile(filename, content)
 }
 
+func (s *StorageServer) HandleGet(file string, node Node) ([]string, error) {
+	type result struct {
+		ss  []string
+		err error
+	}
+
+	ch := make(chan result)
+
+	s.ActionChan <- func() {
+		s, err := s.handleGet(file, node)
+		ch <- result{s, err}
+	}
+
+	res := <-ch
+	return res.ss, res.err
+}
+
 func (s *StorageServer) handleGet(file string, node Node) ([]string, error) {
+
 	if file[0] == '/' {
 		file = file[1:]
 	}
