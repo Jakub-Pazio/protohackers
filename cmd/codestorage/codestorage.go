@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"slices"
@@ -270,7 +271,8 @@ func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) 
 
 	if lenInt > 0 {
 		buf := make([]byte, lenInt)
-		i, err := br.Read(buf)
+		// i, err := br.Read(buf)
+		i, err := io.ReadFull(br, buf)
 		if err != nil {
 			return 0, fmt.Errorf("could not read file content: %v", err)
 		}
