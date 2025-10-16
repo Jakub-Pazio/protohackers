@@ -18,7 +18,7 @@ var portNumber = flag.Int("port", 4242, "Port number of server")
 func main() {
 	flag.Parse()
 
-	server := &StorageServer{root: CreateRoot()}
+	server := &StorageServer{root: CreateRoot(), ActionChan: make(chan func())}
 
 	go server.Init()
 
@@ -45,9 +45,12 @@ type StorageServer struct {
 }
 
 func (s *StorageServer) Init() {
+	log.Printf("Initalized!\n")
 	for {
 		f := <-s.ActionChan
+		log.Printf("Got function\n")
 		f()
+		log.Printf("Executed func\n")
 	}
 }
 
