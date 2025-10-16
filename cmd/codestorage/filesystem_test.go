@@ -87,3 +87,13 @@ func TestAddDirectoryAndFile(t *testing.T) {
 	}
 
 }
+
+func TestValidName(t *testing.T) {
+	name := "/nsV{ewT]E?^qH{w"
+
+	good := IsPrintableASCII(name)
+
+	if good {
+		t.Errorf("This file %q is not valid\n", name)
+	}
+}

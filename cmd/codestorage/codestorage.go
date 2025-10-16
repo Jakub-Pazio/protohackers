@@ -350,11 +350,20 @@ func writeError(conn net.Conn, err error) {
 }
 
 func IsPrintableASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '/' {
-			continue
-		}
-		if s[i] < 32 || s[i] > 126 {
+	prevSlash := false
+	for i := range s {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z':
+			prevSlash = false
+		case c >= 'a' && c <= 'z':
+			prevSlash = false
+		case c == '/':
+			if prevSlash {
+				return false
+			}
+			prevSlash = true
+		default:
 			return false
 		}
 	}
