@@ -151,7 +151,35 @@ func (s *StorageServer) handleConnection(conn net.Conn) {
 
 			log.Printf("%q was legal\n", args[0])
 
-			rev, err := s.HandlePut(args, br)
+			var content string
+
+			var lenInt int
+
+			if len(args) == 2 {
+				length := args[1]
+				length = strings.TrimSpace(length)
+				log.Printf("bytes tring: %q\n", length)
+				parsed, err := strconv.Atoi(length)
+				fmt.Printf("parsed: %v\n", parsed)
+				if err == nil {
+					lenInt = parsed
+				}
+			}
+
+			log.Printf("Bytes to read: %d\n", lenInt)
+
+			if lenInt > 0 {
+				buf := make([]byte, lenInt)
+				// i, err := br.Read(buf)
+				_, err := io.ReadFull(br, buf)
+				if err != nil {
+					writeError(conn, fmt.Errorf("could not read file content: %v", err), &globalWasError)
+					return
+				}
+				content = string(buf)
+			}
+
+			rev, err := s.HandlePut(args, content)
 			if err != nil {
 				writeError(conn, err, &globalWasError)
 				continue
@@ -297,7 +325,7 @@ func (s *StorageServer) handleList(args []string, n Node) []string {
 	return []string{}
 }
 
-func (s *StorageServer) HandlePut(args []string, br *bufio.Reader) (int, error) {
+func (s *StorageServer) HandlePut(args []string, content string) (int, error) {
 	type result struct {
 		i   int
 		err error
@@ -306,7 +334,7 @@ func (s *StorageServer) HandlePut(args []string, br *bufio.Reader) (int, error) 
 	ch := make(chan result)
 
 	s.ActionChan <- func() {
-		i, err := s.handlePut(args, br)
+		i, err := s.handlePut(args, content)
 		ch <- result{i, err}
 	}
 
@@ -315,38 +343,8 @@ func (s *StorageServer) HandlePut(args []string, br *bufio.Reader) (int, error) 
 	return res.i, res.err
 }
 
-func (s *StorageServer) handlePut(args []string, br *bufio.Reader) (int, error) {
+func (s *StorageServer) handlePut(args []string, content string) (int, error) {
 	filename := args[0]
-	var lenInt int
-	var content string
-
-	if len(args) == 2 {
-		length := args[1]
-		length = strings.TrimSpace(length)
-		log.Printf("bytes tring: %q\n", length)
-		parsed, err := strconv.Atoi(length)
-		fmt.Printf("parsed: %v\n", parsed)
-		if err == nil {
-			lenInt = parsed
-		}
-	}
-
-	log.Printf("Bytes to read: %d\n", lenInt)
-
-	if lenInt > 0 {
-		buf := make([]byte, lenInt)
-		// i, err := br.Read(buf)
-		i, err := io.ReadFull(br, buf)
-		if err != nil {
-			return 0, fmt.Errorf("could not read file content: %v", err)
-		}
-
-		if i != lenInt {
-			return 0, fmt.Errorf("file size %d, read %d bytes", lenInt, i)
-		}
-
-		content = string(buf)
-	}
 
 	if !IsLegalContent(content) {
 		log.Printf("Illegal content %q\n", content)
