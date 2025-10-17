@@ -13,7 +13,7 @@ func TestParseFailure(t *testing.T) {
 		t.Errorf("Expected error")
 	}
 
-	want := "ERR illegal method: glOrp"
+	want := "illegal method: glOrp"
 	got := err.Error()
 
 	if got != want {
