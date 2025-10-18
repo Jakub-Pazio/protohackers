@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
-	"unsafe"
 )
 
 type Type byte
@@ -37,19 +37,47 @@ const (
 )
 
 type Message interface {
-	SetChecksum(val byte)
+	// GetChecksum returns value of checksum in the struct
+	// Should be called only on messages that came to server
 	GetChecksum() byte
+
+	// GetBytesSum returns sum of bytes of serialized message without checksum
 	GetBytesSum() byte
-}
+	// SerializeContent serializes "body" bytes without type, size and checksum
+	SerializeContent() []byte
 
-func SetCorrectChecksum(m Message) {
-	remaining := byte(0 - m.GetBytesSum())
-
-	m.SetChecksum(remaining)
+	GetCode() byte
 }
 
 func ValidateChecksum(m Message) bool {
 	return m.GetBytesSum()+m.GetChecksum() == 0
+}
+
+func SerializeMessage(m Message) []byte {
+	bodyBytes := m.SerializeContent()
+
+	bodyLen := len(bodyBytes)
+	totalLen := uint32(bodyLen + 6) // Type (1byte) + TotalLen (4bytes) + Checksum (1byte)
+
+	buf := make([]byte, totalLen)
+
+	code := m.GetCode()
+	buf[0] = code
+
+	totalLenSlice := getUint32AsBytes(&totalLen)
+	copy(buf[1:], totalLenSlice)
+
+	copy(buf[5:], bodyBytes)
+
+	var checkSum byte
+
+	for i := range totalLen - 1 {
+		checkSum -= buf[i]
+	}
+
+	buf[len(buf)-1] = checkSum
+
+	return buf
 }
 
 type HelloMessage struct {
@@ -57,10 +85,6 @@ type HelloMessage struct {
 	Protocol string
 	Version  uint32
 	Checksum byte
-}
-
-func (h *HelloMessage) SetChecksum(val byte) {
-	h.Checksum = val
 }
 
 func (h *HelloMessage) GetChecksum() byte {
@@ -93,6 +117,27 @@ func (h *HelloMessage) GetBytesSum() byte {
 	}
 
 	return sum
+}
+
+func (h *HelloMessage) SerializeContent() []byte {
+	var b bytes.Buffer
+
+	plen := uint32(len(h.Protocol))
+	plenbytes := getUint32AsBytes(&plen)
+
+	b.Write(plenbytes)
+	b.Write([]byte(h.Protocol))
+
+	pver := uint32(h.Version)
+	pverbytes := getUint32AsBytes(&pver)
+
+	b.Write(pverbytes)
+
+	return b.Bytes()
+}
+
+func (h *HelloMessage) GetCode() byte {
+	return byte(Hello)
 }
 
 func ParseHello(length int, bytes []byte) (HelloMessage, error) {
@@ -128,10 +173,6 @@ type SiteVisitMessage struct {
 	Site        uint32
 	Populations []Population
 	CheckSum    byte
-}
-
-func (s *SiteVisitMessage) SetChecksum(val byte) {
-	s.CheckSum = val
 }
 
 func (s *SiteVisitMessage) GetChecksum() byte {
@@ -181,6 +222,32 @@ func (s *SiteVisitMessage) GetBytesSum() byte {
 	return sum
 }
 
+func (s *SiteVisitMessage) GetCode() byte {
+	return byte(SiteVisit)
+}
+
+// We don't send SiteVisitMessage so we don't need to serialize it
+func (s *SiteVisitMessage) SerializeContent() []byte {
+	return nil
+}
+
+func VerifyVisitSite(s SiteVisitMessage) error {
+	popMap := make(map[string]uint32)
+
+	for _, p := range s.Populations {
+		count, ok := popMap[p.Name]
+		if !ok {
+			popMap[p.Name] = p.Count
+		} else {
+			if count != p.Count {
+				return fmt.Errorf("conflicting count for %s", p.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
 func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
 	offset := 0
 	blen := len(bytes)
@@ -220,6 +287,55 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
 	}, nil
 }
 
-func getUint32AsBytes(p *uint32) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(p)), 4)
+type ErrorMessage struct {
+	Length   uint32
+	Message  string
+	Checksum byte
+}
+
+func (e *ErrorMessage) GetChecksum() byte {
+	return e.Checksum
+}
+
+func (e *ErrorMessage) GetBytesSum() byte {
+	sum := byte(Error)
+
+	lenSlice := getUint32AsBytes(&e.Length)
+	for _, b := range lenSlice {
+		sum += b
+	}
+
+	eStrLen := uint32(len(e.Message))
+	eStrLenSlice := getUint32AsBytes(&eStrLen)
+	for _, b := range eStrLenSlice {
+		sum += b
+	}
+
+	for i := range e.Message {
+		sum += e.Message[i]
+	}
+
+	return sum
+}
+
+func (e *ErrorMessage) SerializeContent() []byte {
+	var b bytes.Buffer
+
+	mlen := uint32(len(e.Message))
+	mlenbytes := getUint32AsBytes(&mlen)
+
+	b.Write(mlenbytes)
+	b.Write([]byte(e.Message))
+
+	return b.Bytes()
+}
+
+func (e *ErrorMessage) GetCode() byte {
+	return byte(Error)
+}
+
+func getUint32AsBytes(u *uint32) []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, *u)
+	return b
 }

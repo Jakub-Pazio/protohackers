@@ -10,7 +10,17 @@ func TestValidateHello(t *testing.T) {
 		Checksum: 0xCE,
 	}
 
-	if !msg.validChecksum() {
+	if !ValidateChecksum(&msg) {
 		t.Error("message should be valid")
+	}
+}
+
+func TestSerializeMessage(t *testing.T) {
+	msg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
+
+	serMsg := SerializeMessage(msg)
+
+	if serMsg[len(serMsg)-1] != 0xCE {
+		t.Errorf("checksum calculated incorectly")
 	}
 }

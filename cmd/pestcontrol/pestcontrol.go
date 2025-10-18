@@ -33,48 +33,122 @@ type Server struct {
 func (s *Server) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
 
+	mtype, err := readMessageType(br)
+
+	if err != nil {
+		errMsg := ErrorMessage{Message: "could not read type"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	if mtype != Hello {
+		errMsg := ErrorMessage{Message: "expected hello message"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	l, err := readMessageLength(br)
+
+	if err != nil {
+		errMsg := ErrorMessage{Message: "error reading lenght"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	rest, err := readRemaining(br, l)
+	msg, err := ParseHello(l, rest)
+
+	if err != nil {
+		errMsg := ErrorMessage{Message: "error reading message"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	if msg.Protocol != "pestcontrol" {
+		errMsg := ErrorMessage{Message: "unsupported protocol"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	if msg.Version != 1 {
+		errMsg := ErrorMessage{Message: "unsupported version"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	if !ValidateChecksum(&msg) {
+		errMsg := ErrorMessage{Message: "wrong checksum"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
 	for {
 		mtype, err := readMessageType(br)
 
 		if err != nil {
-			panic(err)
+			errMsg := ErrorMessage{Message: "error reading message type"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
+		}
+
+		if mtype != SiteVisit {
+			errMsg := ErrorMessage{Message: "expected site visit message"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
 		}
 
 		l, err := readMessageLength(br)
 
 		if err != nil {
-			panic(err)
+			errMsg := ErrorMessage{Message: "error reading message"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
 		}
 
 		rest, err := readRemaining(br, l)
 
 		if err != nil {
-			//TODO: send error message to client and close connection
-			break
+			errMsg := ErrorMessage{Message: "error reading message"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
 		}
 
-		switch mtype {
-		case Hello:
-			msg, err := ParseHello(l, rest)
-			if err != nil {
-				panic("TODO: could not read message")
-			}
-			if !ValidateChecksum(&msg) {
-				panic("TODO: invalid checksum")
-			}
-		case SiteVisit:
-			msg, err := ParseSiteVisit(l, rest)
-			if err != nil {
-				panic(err)
-			}
-			if !ValidateChecksum(&msg) {
-				panic("TODO: invalid checksum")
-			}
+		siteMsg, err := ParseSiteVisit(l, rest)
 
-			fmt.Printf("msg: %v\n", msg)
+		if err != nil {
+			errMsg := ErrorMessage{Message: "error reading SiteVisit message"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
+		}
+
+		ok := ValidateChecksum(&siteMsg)
+
+		if !ok {
+			errMsg := ErrorMessage{Message: "wrong checksum"}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
+		}
+
+		if err = VerifyVisitSite(siteMsg); err != nil {
+			errMsg := ErrorMessage{Message: err.Error()}
+			writeMessage(conn, &errMsg)
+			conn.Close()
+			return
 		}
 	}
-
 }
 
 func readRemaining(br *bufio.Reader, l int) ([]byte, error) {
@@ -119,4 +193,8 @@ func readMessageLength(br *bufio.Reader) (int, error) {
 	}
 
 	return int(length), nil
+}
+
+func writeMessage(conn net.Conn, msg Message) {
+	conn.Write(SerializeMessage(msg))
 }
