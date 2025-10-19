@@ -66,12 +66,16 @@ func (s *Server) handleConnection(conn net.Conn) {
 			return
 		}
 
+		log.Printf("SiteVisit message: %+v\n", msg)
+
 		client, err := NewClient(int(msg.Site))
 
 		if err != nil {
 			log.Printf("Could not create client: %v\n", err)
 			//TODO: what to do in this case?
 		}
+
+		log.Printf("Client has been created")
 
 		client = client
 		return

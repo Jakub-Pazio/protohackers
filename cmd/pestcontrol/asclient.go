@@ -22,6 +22,8 @@ func NewClient(site int) (Client, error) {
 	asAddress := net.JoinHostPort(ASDomain, ASPort)
 	conn, err := net.Dial("tcp", asAddress)
 
+	log.Printf("Created connection to AS: %q\n", asAddress)
+
 	if err != nil {
 		return Client{}, err
 	}
@@ -31,9 +33,13 @@ func NewClient(site int) (Client, error) {
 		return client, err
 	}
 
+	log.Printf("Sent Hello message to AS\n")
+
 	if _, err = client.ReceiveHelloMessage(); err != nil {
 		return client, err
 	}
+
+	log.Printf("Received Hello message fom AS\n")
 
 	msg, err := client.RecieveTargetPopulationMessage()
 	log.Printf("Received Target from AS: %+v\n", msg)
