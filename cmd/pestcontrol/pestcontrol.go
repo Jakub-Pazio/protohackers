@@ -103,6 +103,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	log.Println("Received valid hello message")
 
+	replyMsg := HelloMessage{Protocol: "pestprotocol", Version: 1}
+	writeMessage(conn, &replyMsg)
+
 	for {
 		mtype, err := readMessageType(br)
 
