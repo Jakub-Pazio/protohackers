@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 )
@@ -127,4 +128,38 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
 		Populations: population,
 		CheckSum:    checksum,
 	}, nil
+}
+
+func ReadSiteVisitMessage(br *bufio.Reader) (SiteVisitMessage, error) {
+
+	mtype, err := ReadMessageType(br)
+
+	if err != nil {
+		return SiteVisitMessage{}, nil
+	}
+
+	if mtype != SiteVisit {
+		return SiteVisitMessage{}, WrongMessageType
+	}
+
+	l, err := ReadMessageLength(br)
+	if err != nil {
+		return SiteVisitMessage{}, err
+	}
+
+	rest, err := ReadRemaining(br, l)
+	if err != nil {
+		return SiteVisitMessage{}, err
+	}
+
+	siteMsg, err := ParseSiteVisit(l, rest)
+	if err != nil {
+		return SiteVisitMessage{}, err
+	}
+
+	if !ValidateChecksum(&siteMsg) {
+		return SiteVisitMessage{}, InvalidChecksumError
+	}
+
+	return SiteVisitMessage{}, nil
 }

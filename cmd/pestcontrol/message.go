@@ -28,6 +28,7 @@ var (
 	InvalidMessageTypeError = fmt.Errorf("invalid message type")
 	MessageToLargeError     = fmt.Errorf("message to large")
 	InvalidChecksumError    = fmt.Errorf("checksum is invalid")
+	WrongMessageType        = fmt.Errorf("unexpected message type")
 )
 
 func validMessageType(b byte) bool {

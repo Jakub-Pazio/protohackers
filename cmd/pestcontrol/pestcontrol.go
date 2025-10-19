@@ -4,7 +4,6 @@ import (
 	"bean/pkg/pserver"
 	"bufio"
 	"flag"
-	"io"
 	"log"
 	"net"
 )
@@ -32,11 +31,17 @@ func (s *Server) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
 
 	_, err := ReadHelloMessage(br)
-
+	if err != nil {
+		log.Printf("Error reading Hello message: %v\n", err)
+		errMsg := &ErrorMessage{Message: err.Error()}
+		WriteMessage(conn, errMsg)
+		conn.Close()
+		return
+	}
 	log.Println("Received valid hello message")
 
-	replyMsg := HelloMessage{Protocol: "pestcontrol", Version: 1}
-	err = WriteMessage(conn, &replyMsg)
+	replyMsg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
+	err = WriteMessage(conn, replyMsg)
 	if err != nil {
 		log.Printf("failed sending message: %v\n", err)
 		conn.Close()
@@ -44,73 +49,15 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	for {
-		mtype, err := ReadMessageType(br)
-
-		if err == io.EOF {
-			conn.Close()
-			return
-		}
-
-		log.Printf("Got %d message type\n", mtype)
-
+		msg, err := ReadSiteVisitMessage(br)
 		if err != nil {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: "error reading message type"}
-			WriteMessage(conn, &errMsg)
+			log.Printf("Error reading SiteVisit message: %q\n", err)
+			errMsg := &ErrorMessage{Message: err.Error()}
+			WriteMessage(conn, errMsg)
 			conn.Close()
 			return
 		}
 
-		if mtype != SiteVisit {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: "expected site visit message"}
-			WriteMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
-
-		l, err := ReadMessageLength(br)
-
-		if err != nil {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: "error reading message"}
-			WriteMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
-
-		rest, err := ReadRemaining(br, l)
-
-		if err != nil {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: "error reading message"}
-			WriteMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
-
-		siteMsg, err := ParseSiteVisit(l, rest)
-
-		if err != nil {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: "error reading SiteVisit message"}
-			WriteMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
-
-		log.Printf("REQ: %+v\n", siteMsg)
-
-		ok := ValidateChecksum(&siteMsg)
-
-		if !ok {
-			log.Println("Checksum is wrong")
-			errMsg := ErrorMessage{Message: "wrong checksum"}
-			WriteMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
-
-		log.Printf("SiteVisit message is valid\n")
+		log.Printf("Recived SiteVisit message: %+v\n", msg)
 	}
 }

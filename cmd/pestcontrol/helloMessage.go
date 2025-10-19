@@ -91,7 +91,6 @@ func ParseHello(length int, bytes []byte) (HelloMessage, error) {
 }
 
 var (
-	WrongMessageType   = fmt.Errorf("unexpected message type")
 	UnknownProtocol    = fmt.Errorf("unknown protocol name")
 	UnsupportedVersion = fmt.Errorf("unsupported protocol version")
 )
