@@ -41,6 +41,11 @@ func NewClient(site int) (Client, error) {
 
 	log.Printf("Received Hello message fom AS\n")
 
+	dialMsg := DialAuthorityMessage{Site: uint32(site)}
+	if err = client.SendMessage(&dialMsg); err != nil {
+		return client, err
+	}
+
 	msg, err := client.RecieveTargetPopulationMessage()
 	log.Printf("Received Target from AS: %+v\n", msg)
 
