@@ -34,8 +34,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
 
 	mtype, err := readMessageType(br)
-
 	if err != nil {
+		log.Println(err)
 		errMsg := ErrorMessage{Message: "could not read type"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -43,6 +43,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	if mtype != Hello {
+		log.Println("message is not hello")
 		errMsg := ErrorMessage{Message: "expected hello message"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -50,8 +51,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	l, err := readMessageLength(br)
-
 	if err != nil {
+		log.Println(err)
 		errMsg := ErrorMessage{Message: "error reading lenght"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -59,9 +60,17 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	rest, err := readRemaining(br, l)
-	msg, err := ParseHello(l, rest)
-
 	if err != nil {
+		log.Println(err)
+		errMsg := ErrorMessage{Message: "error reading message"}
+		writeMessage(conn, &errMsg)
+		conn.Close()
+		return
+	}
+
+	msg, err := ParseHello(l, rest)
+	if err != nil {
+		log.Println(err)
 		errMsg := ErrorMessage{Message: "error reading message"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -69,6 +78,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	if msg.Protocol != "pestcontrol" {
+		log.Printf("unknown protocol: %q\n", msg.Protocol)
 		errMsg := ErrorMessage{Message: "unsupported protocol"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -76,6 +86,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	if msg.Version != 1 {
+		log.Printf("unsupported version %d\n", msg.Version)
 		errMsg := ErrorMessage{Message: "unsupported version"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
@@ -83,16 +94,20 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	if !ValidateChecksum(&msg) {
+		log.Println("wrong checksum")
 		errMsg := ErrorMessage{Message: "wrong checksum"}
 		writeMessage(conn, &errMsg)
 		conn.Close()
 		return
 	}
 
+	log.Println("Received valid hello message")
+
 	for {
 		mtype, err := readMessageType(br)
 
 		if err != nil {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: "error reading message type"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -100,6 +115,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		if mtype != SiteVisit {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: "expected site visit message"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -109,6 +125,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		l, err := readMessageLength(br)
 
 		if err != nil {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: "error reading message"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -118,6 +135,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		rest, err := readRemaining(br, l)
 
 		if err != nil {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: "error reading message"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -127,6 +145,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		siteMsg, err := ParseSiteVisit(l, rest)
 
 		if err != nil {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: "error reading SiteVisit message"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -136,6 +155,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		ok := ValidateChecksum(&siteMsg)
 
 		if !ok {
+			log.Println("Checksum is wrong")
 			errMsg := ErrorMessage{Message: "wrong checksum"}
 			writeMessage(conn, &errMsg)
 			conn.Close()
@@ -143,6 +163,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 		if err = VerifyVisitSite(siteMsg); err != nil {
+			log.Println(err)
 			errMsg := ErrorMessage{Message: err.Error()}
 			writeMessage(conn, &errMsg)
 			conn.Close()
