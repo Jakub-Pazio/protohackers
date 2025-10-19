@@ -161,5 +161,5 @@ func ReadSiteVisitMessage(br *bufio.Reader) (SiteVisitMessage, error) {
 		return SiteVisitMessage{}, InvalidChecksumError
 	}
 
-	return SiteVisitMessage{}, nil
+	return siteMsg, nil
 }
