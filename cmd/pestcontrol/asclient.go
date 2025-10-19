@@ -52,7 +52,7 @@ func NewClient(site int) (Client, error) {
 	log.Printf("Received Target from AS: %+v\n", msg)
 
 	if err != nil {
-		return client, nil
+		return client, err
 	}
 
 	client.targets = msg.Targets

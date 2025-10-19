@@ -23,7 +23,49 @@ func (t *TargetPopulationMessage) GetChecksum() byte {
 }
 
 func (t *TargetPopulationMessage) GetBytesSum() byte {
-	return byte(0)
+	sum := byte(TargetPopulations)
+
+	lenSlice := GetUint32AsBytes(&t.Length)
+	for _, b := range lenSlice {
+		sum += b
+	}
+
+	siteSlice := GetUint32AsBytes(&t.Site)
+	for _, b := range siteSlice {
+		sum += b
+	}
+
+	targetLen := uint32(len(t.Targets))
+	targetSlice := GetUint32AsBytes(&targetLen)
+	for _, b := range targetSlice {
+		sum += b
+	}
+
+	for _, target := range t.Targets {
+		nameLen := uint32(len(target.Specie))
+		nameSlice := GetUint32AsBytes(&nameLen)
+		for _, b := range nameSlice {
+			sum += b
+		}
+
+		for i := range len(target.Specie) {
+			sum += target.Specie[i]
+		}
+
+		maxV := uint32(target.Max)
+		maxSlice := GetUint32AsBytes(&maxV)
+		for _, b := range maxSlice {
+			sum += b
+		}
+
+		minV := uint32(target.Min)
+		minSlice := GetUint32AsBytes(&minV)
+		for _, b := range minSlice {
+			sum += b
+		}
+	}
+
+	return sum
 }
 
 func (t *TargetPopulationMessage) GetCode() byte {
