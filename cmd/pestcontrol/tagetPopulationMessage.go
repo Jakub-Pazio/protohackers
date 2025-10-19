@@ -81,7 +81,7 @@ func ReadTargetPopulationsMessage(br *bufio.Reader) (TargetPopulationMessage, er
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return TargetPopulationMessage{}, nil
+		return TargetPopulationMessage{}, err
 	}
 
 	if mtype != TargetPopulations {

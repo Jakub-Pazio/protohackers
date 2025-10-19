@@ -14,6 +14,7 @@ const (
 type Client struct {
 	Site int
 	conn net.Conn
+	br   *bufio.Reader
 
 	targets []TargetPopulation
 }
@@ -21,6 +22,7 @@ type Client struct {
 func NewClient(site int) (Client, error) {
 	asAddress := net.JoinHostPort(ASDomain, ASPort)
 	conn, err := net.Dial("tcp", asAddress)
+	br := bufio.NewReader(conn)
 
 	log.Printf("Created connection to AS: %q\n", asAddress)
 
@@ -28,7 +30,7 @@ func NewClient(site int) (Client, error) {
 		return Client{}, err
 	}
 
-	client := Client{conn: conn, Site: site}
+	client := Client{conn: conn, br: br, Site: site}
 	if err = client.SendMessage(&ValidHelloMessage); err != nil {
 		return client, err
 	}
@@ -65,11 +67,9 @@ func (c Client) SendMessage(msg Message) error {
 
 // TODO: think if adding timeout to the reading message, for example 5 sec, if no message we return error
 func (c Client) ReceiveHelloMessage() (HelloMessage, error) {
-	br := bufio.NewReader(c.conn)
-	return ReadHelloMessage(br)
+	return ReadHelloMessage(c.br)
 }
 
 func (c Client) RecieveTargetPopulationMessage() (TargetPopulationMessage, error) {
-	br := bufio.NewReader(c.conn)
-	return ReadTargetPopulationsMessage(br)
+	return ReadTargetPopulationsMessage(c.br)
 }
