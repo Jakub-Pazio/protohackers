@@ -68,6 +68,9 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("SiteVisit message: %+v\n", msg)
 
+		//TODO: Get the client from a "global map of clients"
+		// if it does not exist for this site, create one
+		// Client has cached Target and connection to send Delete and Create Policy req
 		client, err := NewClient(int(msg.Site))
 
 		if err != nil {
