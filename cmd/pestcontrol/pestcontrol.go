@@ -51,13 +51,29 @@ func (s *Server) handleConnection(conn net.Conn) {
 	for {
 		msg, err := ReadSiteVisitMessage(br)
 		if err != nil {
-			log.Printf("Error reading SiteVisit message: %q\n", err)
+			log.Printf("Error reading SiteVisit message: %v\n", err)
 			errMsg := &ErrorMessage{Message: err.Error()}
 			WriteMessage(conn, errMsg)
 			conn.Close()
 			return
 		}
 
-		log.Printf("Recived SiteVisit message: %+v\n", msg)
+		if err = VerifyVisitSite(msg); err != nil {
+			log.Printf("Invalid SiteVisit message: %v\n", err)
+			errMsg := &ErrorMessage{Message: err.Error()}
+			WriteMessage(conn, errMsg)
+			conn.Close()
+			return
+		}
+
+		client, err := NewClient(int(msg.Site))
+
+		if err != nil {
+			log.Printf("Could not create client: %v\n", err)
+			//TODO: what to do in this case?
+		}
+
+		client = client
+		return
 	}
 }

@@ -93,8 +93,11 @@ func ParseHello(length int, bytes []byte) (HelloMessage, error) {
 var (
 	UnknownProtocol    = fmt.Errorf("unknown protocol name")
 	UnsupportedVersion = fmt.Errorf("unsupported protocol version")
+	ValidHelloMessage  = HelloMessage{Protocol: "pestcontrol", Version: 1}
 )
 
+// TODO: this function shold not do any validation, then we could implement it as
+// function that is generic for any T Message, and get the correct type of this Message
 func ReadHelloMessage(br *bufio.Reader) (HelloMessage, error) {
 	mtype, err := ReadMessageType(br)
 	if err != nil {
