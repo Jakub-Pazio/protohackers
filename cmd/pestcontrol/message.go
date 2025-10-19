@@ -148,9 +148,9 @@ func ParseHello(length int, bytes []byte) (HelloMessage, error) {
 		return HelloMessage{}, fmt.Errorf("protocol length incorrect")
 	}
 
-	protocol := string(bytes[4 : protoLen+5])
+	protocol := string(bytes[4 : protoLen+4])
 
-	vbytes := bytes[protoLen+5 : protoLen+9]
+	vbytes := bytes[protoLen+4 : protoLen+8]
 	version := binary.BigEndian.Uint32(vbytes)
 
 	checksum := bytes[blen-1]
