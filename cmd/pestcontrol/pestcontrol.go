@@ -103,11 +103,21 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	log.Println("Received valid hello message")
 
-	replyMsg := HelloMessage{Protocol: "pestprotocol", Version: 1}
-	writeMessage(conn, &replyMsg)
+	replyMsg := HelloMessage{Protocol: "pestcontrol", Version: 1}
+	err = writeMessage(conn, &replyMsg)
+	if err != nil {
+		log.Printf("failed sending message: %v\n", err)
+		conn.Close()
+		return
+	}
 
 	for {
 		mtype, err := readMessageType(br)
+
+		if err == io.EOF {
+			conn.Close()
+			return
+		}
 
 		if err != nil {
 			log.Println(err)
@@ -219,6 +229,7 @@ func readMessageLength(br *bufio.Reader) (int, error) {
 	return int(length), nil
 }
 
-func writeMessage(conn net.Conn, msg Message) {
-	conn.Write(SerializeMessage(msg))
+func writeMessage(conn net.Conn, msg Message) error {
+	_, err := conn.Write(SerializeMessage(msg))
+	return err
 }
