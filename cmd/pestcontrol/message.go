@@ -1,9 +1,11 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"net"
 )
 
 type Type byte
@@ -22,8 +24,11 @@ const (
 	None Type = 0
 )
 
-var invalidMessageTypeError = fmt.Errorf("invalid message type")
-var messageToLargeError = fmt.Errorf("message to large")
+var (
+	InvalidMessageTypeError = fmt.Errorf("invalid message type")
+	MessageToLargeError     = fmt.Errorf("message to large")
+	InvalidChecksumError    = fmt.Errorf("checksum is invalid")
+)
 
 func validMessageType(b byte) bool {
 	if b >= 0x50 && b <= 0x58 {
@@ -64,7 +69,7 @@ func SerializeMessage(m Message) []byte {
 	code := m.GetCode()
 	buf[0] = code
 
-	totalLenSlice := getUint32AsBytes(&totalLen)
+	totalLenSlice := GetUint32AsBytes(&totalLen)
 	copy(buf[1:], totalLenSlice)
 
 	copy(buf[5:], bodyBytes)
@@ -80,262 +85,57 @@ func SerializeMessage(m Message) []byte {
 	return buf
 }
 
-type HelloMessage struct {
-	Length   uint32
-	Protocol string
-	Version  uint32
-	Checksum byte
-}
-
-func (h *HelloMessage) GetChecksum() byte {
-	return h.Checksum
-}
-
-func (h *HelloMessage) GetBytesSum() byte {
-	sum := byte(Hello)
-
-	lenSlice := getUint32AsBytes(&h.Length)
-
-	for _, b := range lenSlice {
-		sum += b
-	}
-
-	pStrLen := uint32(len(h.Protocol))
-	pStrLenSlice := getUint32AsBytes(&pStrLen)
-
-	for _, b := range pStrLenSlice {
-		sum += b
-	}
-
-	for i := range len(h.Protocol) {
-		sum += h.Protocol[i]
-	}
-
-	versionSlice := getUint32AsBytes(&h.Version)
-	for _, b := range versionSlice {
-		sum += b
-	}
-
-	return sum
-}
-
-func (h *HelloMessage) SerializeContent() []byte {
-	var b bytes.Buffer
-
-	plen := uint32(len(h.Protocol))
-	plenbytes := getUint32AsBytes(&plen)
-
-	b.Write(plenbytes)
-	b.Write([]byte(h.Protocol))
-
-	pver := uint32(h.Version)
-	pverbytes := getUint32AsBytes(&pver)
-
-	b.Write(pverbytes)
-
-	return b.Bytes()
-}
-
-func (h *HelloMessage) GetCode() byte {
-	return byte(Hello)
-}
-
-func ParseHello(length int, bytes []byte) (HelloMessage, error) {
-	blen := len(bytes)
-	protoLen := binary.BigEndian.Uint32(bytes[:4])
-
-	if length-14 != int(protoLen) {
-		return HelloMessage{}, fmt.Errorf("protocol length incorrect")
-	}
-
-	protocol := string(bytes[4 : protoLen+4])
-
-	vbytes := bytes[protoLen+4 : protoLen+8]
-	version := binary.BigEndian.Uint32(vbytes)
-
-	checksum := bytes[blen-1]
-
-	return HelloMessage{
-		Length:   uint32(length),
-		Protocol: protocol,
-		Version:  version,
-		Checksum: checksum,
-	}, nil
-}
-
-type Population struct {
-	Name  string
-	Count uint32
-}
-
-type SiteVisitMessage struct {
-	Length      uint32
-	Site        uint32
-	Populations []Population
-	CheckSum    byte
-}
-
-func (s *SiteVisitMessage) GetChecksum() byte {
-	return s.CheckSum
-}
-
-func (s *SiteVisitMessage) GetBytesSum() byte {
-	sum := byte(SiteVisit)
-
-	lenSlice := getUint32AsBytes(&s.Length)
-
-	for _, b := range lenSlice {
-		sum += b
-	}
-
-	siteSlice := getUint32AsBytes(&s.Site)
-
-	for _, b := range siteSlice {
-		sum += b
-	}
-
-	popLen := uint32(len(s.Populations))
-	popSlice := getUint32AsBytes(&popLen)
-
-	for _, b := range popSlice {
-		sum += b
-	}
-
-	for _, population := range s.Populations {
-		nameLen := uint32(len(population.Name))
-		nameSlice := getUint32AsBytes(&nameLen)
-		for _, b := range nameSlice {
-			sum += b
-		}
-
-		for i := range len(population.Name) {
-			sum += population.Name[i]
-		}
-
-		popCount := uint32(population.Count)
-		popCountSlice := getUint32AsBytes(&popCount)
-		for _, b := range popCountSlice {
-			sum += b
-		}
-	}
-
-	return sum
-}
-
-func (s *SiteVisitMessage) GetCode() byte {
-	return byte(SiteVisit)
-}
-
-// We don't send SiteVisitMessage so we don't need to serialize it
-func (s *SiteVisitMessage) SerializeContent() []byte {
-	return nil
-}
-
-func VerifyVisitSite(s SiteVisitMessage) error {
-	popMap := make(map[string]uint32)
-
-	for _, p := range s.Populations {
-		count, ok := popMap[p.Name]
-		if !ok {
-			popMap[p.Name] = p.Count
-		} else {
-			if count != p.Count {
-				return fmt.Errorf("conflicting count for %s", p.Name)
-			}
-		}
-	}
-
-	return nil
-}
-
-func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
-	offset := 0
-	blen := len(bytes)
-
-	site := binary.BigEndian.Uint32(bytes[:offset+4])
-	offset += 4
-
-	populationLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
-	offset += 4
-
-	population := make([]Population, populationLen)
-
-	for i := range populationLen {
-		nameLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
-		offset += 4
-		name := string(bytes[offset : offset+int(nameLen)])
-		offset += int(nameLen)
-
-		count := binary.BigEndian.Uint32(bytes[offset : offset+4])
-		offset += 4
-
-		pop := Population{
-			Name:  name,
-			Count: count,
-		}
-
-		population[i] = pop
-	}
-
-	checksum := bytes[blen-1]
-
-	return SiteVisitMessage{
-		Length:      uint32(length),
-		Site:        site,
-		Populations: population,
-		CheckSum:    checksum,
-	}, nil
-}
-
-type ErrorMessage struct {
-	Length   uint32
-	Message  string
-	Checksum byte
-}
-
-func (e *ErrorMessage) GetChecksum() byte {
-	return e.Checksum
-}
-
-func (e *ErrorMessage) GetBytesSum() byte {
-	sum := byte(Error)
-
-	lenSlice := getUint32AsBytes(&e.Length)
-	for _, b := range lenSlice {
-		sum += b
-	}
-
-	eStrLen := uint32(len(e.Message))
-	eStrLenSlice := getUint32AsBytes(&eStrLen)
-	for _, b := range eStrLenSlice {
-		sum += b
-	}
-
-	for i := range e.Message {
-		sum += e.Message[i]
-	}
-
-	return sum
-}
-
-func (e *ErrorMessage) SerializeContent() []byte {
-	var b bytes.Buffer
-
-	mlen := uint32(len(e.Message))
-	mlenbytes := getUint32AsBytes(&mlen)
-
-	b.Write(mlenbytes)
-	b.Write([]byte(e.Message))
-
-	return b.Bytes()
-}
-
-func (e *ErrorMessage) GetCode() byte {
-	return byte(Error)
-}
-
-func getUint32AsBytes(u *uint32) []byte {
+func GetUint32AsBytes(u *uint32) []byte {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, *u)
 	return b
+}
+
+func WriteMessage(conn net.Conn, msg Message) error {
+	_, err := conn.Write(SerializeMessage(msg))
+	return err
+}
+
+func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
+	remaining := l - MsgHeaderLen
+
+	buf := make([]byte, remaining)
+
+	_, err := io.ReadFull(br, buf)
+
+	if err != nil {
+		return buf, fmt.Errorf("could not read whole message: %q", err)
+	}
+
+	return buf, err
+}
+
+func ReadMessageType(br *bufio.Reader) (Type, error) {
+	b, err := br.ReadByte()
+	if err != nil {
+		return None, fmt.Errorf("could not read type: %v", err)
+	}
+
+	if !validMessageType(b) {
+		return None, InvalidMessageTypeError
+	}
+
+	return Type(b), nil
+}
+
+func ReadMessageLength(br *bufio.Reader) (int, error) {
+	buf := make([]byte, 4)
+	_, err := io.ReadFull(br, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("could not read message length: %v", err)
+	}
+
+	length := binary.BigEndian.Uint32(buf)
+
+	if length > 1_000_000 {
+		return 0, MessageToLargeError
+	}
+
+	return int(length), nil
 }

@@ -17,7 +17,7 @@ func TestReadType(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := readMessageType(br)
+	got, err := ReadMessageType(br)
 	if err != nil {
 		t.Errorf("unexpected error: %v\n", err)
 	}
@@ -28,7 +28,7 @@ func TestReadType(t *testing.T) {
 		t.Errorf("got %v, want %v\n", got, want)
 	}
 
-	len, err := readMessageLength(br)
+	len, err := ReadMessageLength(br)
 
 	lwant := 36
 	if len != lwant {
@@ -47,7 +47,7 @@ func TestReadTooLarge(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := readMessageType(br)
+	got, err := ReadMessageType(br)
 	if err != nil {
 		t.Errorf("unexpected error: %v\n", err)
 	}
@@ -58,7 +58,7 @@ func TestReadTooLarge(t *testing.T) {
 		t.Errorf("got %v, want %v\n", got, want)
 	}
 
-	len, err := readMessageLength(br)
+	len, err := ReadMessageLength(br)
 
 	lwant := 0
 	if len != lwant {
@@ -69,7 +69,7 @@ func TestReadTooLarge(t *testing.T) {
 		t.Errorf("expected error but got none\n")
 	}
 
-	if err != messageToLargeError {
+	if err != MessageToLargeError {
 		t.Errorf("incorrect error: %q\n", err)
 	}
 }
@@ -85,13 +85,13 @@ func TestReadUnknownType(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := readMessageType(br)
+	got, err := ReadMessageType(br)
 
 	if err == nil {
 		t.Errorf("expected error, but got no")
 	}
 
-	if err != invalidMessageTypeError {
+	if err != InvalidMessageTypeError {
 		t.Errorf("wrong error type, got: %q", err)
 	}
 
@@ -123,7 +123,7 @@ func TestReadSiteVisit(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := readMessageType(br)
+	got, err := ReadMessageType(br)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v\n", err)
@@ -132,13 +132,13 @@ func TestReadSiteVisit(t *testing.T) {
 	if got != SiteVisit {
 		t.Errorf("Expected SiteVisit, got %d\n", got)
 	}
-	l, err := readMessageLength(br)
+	l, err := ReadMessageLength(br)
 
 	if err != nil {
 		t.Errorf("Unexprected error: %v\n", err)
 	}
 
-	rest, err := readRemaining(br, l)
+	rest, err := ReadRemaining(br, l)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v\n", err)
