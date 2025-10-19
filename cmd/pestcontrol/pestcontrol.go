@@ -119,6 +119,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 			return
 		}
 
+		log.Printf("Got %d message type\n", mtype)
+
 		if err != nil {
 			log.Println(err)
 			errMsg := ErrorMessage{Message: "error reading message type"}
@@ -165,6 +167,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 			return
 		}
 
+		log.Printf("REQ: %+v\n", siteMsg)
+
 		ok := ValidateChecksum(&siteMsg)
 
 		if !ok {
@@ -175,13 +179,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 			return
 		}
 
-		if err = VerifyVisitSite(siteMsg); err != nil {
-			log.Println(err)
-			errMsg := ErrorMessage{Message: err.Error()}
-			writeMessage(conn, &errMsg)
-			conn.Close()
-			return
-		}
+		log.Printf("SiteVisit message is valid\n")
 	}
 }
 
