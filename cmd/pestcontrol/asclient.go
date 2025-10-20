@@ -158,6 +158,7 @@ func (c *Client) AdjustPolicy(actual []Population) error {
 			}
 		}
 
+		log.Printf("after adjusting: %d: %+v\n", c.Site, c.activePolicy)
 		ch <- nil
 	}
 	return <-ch
