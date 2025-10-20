@@ -50,7 +50,7 @@ func ReadOkMessage(br *bufio.Reader) (OkMessage, error) {
 		return OkMessage{}, nil
 	}
 
-	if mtype != SiteVisit {
+	if mtype != OK {
 		return OkMessage{}, WrongMessageType
 	}
 
