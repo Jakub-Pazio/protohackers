@@ -11,12 +11,25 @@ const (
 	ASPort   = "20547"
 )
 
+type Policy byte
+
+type PolicyStruct struct {
+	pid    uint32
+	policy Policy
+}
+
+const (
+	Cull     Policy = 0x90
+	Conserve Policy = 0xa0
+)
+
 type Client struct {
 	Site int
 	conn net.Conn
 	br   *bufio.Reader
 
-	targets []TargetPopulation
+	targets      []TargetPopulation
+	activePolicy map[string]PolicyStruct
 }
 
 func NewClient(site int) (Client, error) {
@@ -30,7 +43,7 @@ func NewClient(site int) (Client, error) {
 		return Client{}, err
 	}
 
-	client := Client{conn: conn, br: br, Site: site}
+	client := Client{conn: conn, br: br, Site: site, activePolicy: make(map[string]PolicyStruct)}
 	if err = client.SendMessage(&ValidHelloMessage); err != nil {
 		return client, err
 	}
@@ -63,6 +76,86 @@ func NewClient(site int) (Client, error) {
 func (c Client) SendMessage(msg Message) error {
 	_, err := c.conn.Write(SerializeMessage(msg))
 	return err
+}
+
+func (c *Client) AdjustPolicy(actual []Population) error {
+	actMap := make(map[string]uint32)
+	for _, a := range actual {
+		actMap[a.Name] = a.Count
+	}
+
+	for _, target := range c.targets {
+		specie := target.Specie
+		actualCount := actMap[specie]
+
+		if actualCount < target.Min || actualCount > target.Max {
+			//TODO: check if we have correct policy, if not remove or/and add new
+			currentPolicy, ok := c.activePolicy[specie]
+			if ok {
+				if actualCount < target.Min && currentPolicy.policy == Conserve {
+					continue
+				}
+				if actualCount > target.Max && currentPolicy.policy == Cull {
+					continue
+				}
+				c.CancelPolicy(currentPolicy)
+				delete(c.activePolicy, specie)
+			}
+
+			var newPolicy Policy
+			if actualCount < target.Min {
+				newPolicy = Conserve
+			} else {
+				newPolicy = Cull
+			}
+
+			id, err := c.CreatePolicy(specie, newPolicy)
+			if err != nil {
+				//TODO: if we treat it as a transaction we should remove previous
+				// added policies
+				return err
+			}
+			c.activePolicy[specie] = PolicyStruct{
+				pid:    id,
+				policy: newPolicy,
+			}
+
+		} else {
+			// current number of animals is correct, remove policy if exists
+			if currentPolicy, ok := c.activePolicy[specie]; ok {
+				err := c.CancelPolicy(currentPolicy)
+				if err != nil {
+					return err
+				}
+				delete(c.activePolicy, specie)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
+	msg := CreatePolicyMessage{Specie: specie, Action: byte(newPolicy)}
+	if err := c.SendMessage(&msg); err != nil {
+		return 0, err
+	}
+
+	resultMsg, err := c.ReceivePolicyResultMessage()
+	if err != nil {
+		return 0, err
+	}
+
+	return resultMsg.PolicyID, nil
+}
+
+func (c *Client) CancelPolicy(currentPolicy PolicyStruct) error {
+	msg := DeletePolicyMessage{PolicyID: currentPolicy.pid}
+	return c.SendMessage(&msg)
+}
+
+func (c Client) ReceivePolicyResultMessage() (PolicyResultMessage, error) {
+	return ReadPolicyResultMessage(c.br)
 }
 
 // TODO: think if adding timeout to the reading message, for example 5 sec, if no message we return error

@@ -14,7 +14,7 @@ func main() {
 
 	flag.Parse()
 
-	s := Server{}
+	s := Server{ASClients: make(map[uint32]Client)}
 
 	handler := pserver.WithMiddleware(
 		s.handleConnection,
@@ -25,6 +25,7 @@ func main() {
 }
 
 type Server struct {
+	ASClients map[uint32]Client
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -68,19 +69,21 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("SiteVisit message: %+v\n", msg)
 
-		//TODO: Get the client from a "global map of clients"
-		// if it does not exist for this site, create one
-		// Client has cached Target and connection to send Delete and Create Policy req
-		client, err := NewClient(int(msg.Site))
-
-		if err != nil {
-			log.Printf("Could not create client: %v\n", err)
-			//TODO: what to do in this case?
+		client, ok := s.ASClients[msg.Site]
+		if !ok {
+			newclient, err := NewClient(int(msg.Site))
+			if err != nil {
+				log.Printf("Could not create client: %v\n", err)
+				errMsg := ErrorMessage{Message: "could not connect to AS"}
+				WriteMessage(conn, &errMsg)
+				conn.Close()
+				return
+			}
+			s.ASClients[msg.Site] = newclient
+			client = newclient
+			log.Printf("Client has been created")
 		}
 
-		log.Printf("Client has been created")
-
-		client = client
-		return
+		client.AdjustPolicy(msg.Populations)
 	}
 }
