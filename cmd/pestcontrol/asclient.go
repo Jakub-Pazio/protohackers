@@ -37,6 +37,7 @@ type Client struct {
 func (c *Client) Initialize() {
 	for {
 		f := <-c.ActionChan
+		log.Printf("Handling Site Adjustemnt")
 		f()
 	}
 }

@@ -14,7 +14,7 @@ func main() {
 
 	flag.Parse()
 
-	s := Server{ASClients: make(map[uint32]*Client)}
+	s := Server{ASClients: make(map[uint32]*Client), ActionChan: make(chan func())}
 	go s.Initialize()
 
 	handler := pserver.WithMiddleware(
@@ -33,6 +33,7 @@ type Server struct {
 func (s *Server) Initialize() {
 	for {
 		f := <-s.ActionChan
+		log.Printf("Getting/Creating client for AS\n")
 		f()
 	}
 }
@@ -109,6 +110,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if err != nil {
 			log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
 		}
+
+		log.Printf("client created for site %d\n", msg.Site)
 
 		if err = client.AdjustPolicy(msg.Populations); err != nil {
 			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
