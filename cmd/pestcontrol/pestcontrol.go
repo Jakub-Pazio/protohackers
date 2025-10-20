@@ -118,6 +118,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("SiteVisit message: %+v\n", msg)
 
+		client, err := s.GetClient(msg.Site)
 		if err != nil {
 			log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
 			errMsg := &ErrorMessage{Message: err.Error()}
