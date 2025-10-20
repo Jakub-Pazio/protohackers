@@ -54,7 +54,13 @@ func NewClient(site uint32) (Client, error) {
 		return Client{}, err
 	}
 
-	client := Client{conn: conn, br: br, Site: site, activePolicy: make(map[string]PolicyStruct)}
+	client := Client{
+		conn:         conn,
+		br:           br,
+		Site:         site,
+		activePolicy: make(map[string]PolicyStruct),
+		ActionChan:   make(chan func()),
+	}
 	if err = client.SendMessage(&ValidHelloMessage); err != nil {
 		return client, err
 	}
