@@ -92,20 +92,36 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
 	offset := 0
 	blen := len(bytes)
 
+	if offset+4 > blen {
+		return SiteVisitMessage{}, InvalidMessageLengthError
+	}
 	site := binary.BigEndian.Uint32(bytes[:offset+4])
 	offset += 4
 
+	if offset+4 > blen {
+		return SiteVisitMessage{}, InvalidMessageLengthError
+	}
 	populationLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
 	offset += 4
 
 	population := make([]Population, populationLen)
 
 	for i := range populationLen {
+		if offset+4 > blen {
+			return SiteVisitMessage{}, InvalidMessageLengthError
+		}
 		nameLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
 		offset += 4
+
+		if offset+int(nameLen) > blen {
+			return SiteVisitMessage{}, InvalidMessageLengthError
+		}
 		name := string(bytes[offset : offset+int(nameLen)])
 		offset += int(nameLen)
 
+		if offset+4 > blen {
+			return SiteVisitMessage{}, InvalidMessageLengthError
+		}
 		count := binary.BigEndian.Uint32(bytes[offset : offset+4])
 		offset += 4
 
