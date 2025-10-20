@@ -94,6 +94,8 @@ func (c Client) SendMessage(msg Message) error {
 func (c *Client) AdjustPolicy(actual []Population) error {
 	ch := make(chan error)
 
+	log.Printf("Sending function to AP for population: %+v\n", actual)
+
 	c.ActionChan <- func() {
 		actMap := make(map[string]uint32)
 		for _, a := range actual {
