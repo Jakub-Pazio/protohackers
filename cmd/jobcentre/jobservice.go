@@ -210,7 +210,6 @@ func (js *JobService) HandlePut(req request) int {
 
 }
 
-// TODO: if job is not found we should and we wait for job we need to return a channel
 func (js *JobService) HandleGet(req request, clientId int) (*JobItem, chan *JobItem) {
 
 	type result struct {

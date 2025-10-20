@@ -113,7 +113,6 @@ func (c *Client) AdjustPolicy(actual []Population) error {
 			actualCount := actMap[specie]
 
 			if actualCount < target.Min || actualCount > target.Max {
-				//TODO: check if we have correct policy, if not remove or/and add new
 				currentPolicy, ok := c.activePolicy[specie]
 				if ok {
 					if actualCount < target.Min && currentPolicy.policy == Conserve {
