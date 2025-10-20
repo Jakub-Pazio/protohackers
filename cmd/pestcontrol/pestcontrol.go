@@ -109,12 +109,20 @@ func (s *Server) handleConnection(conn net.Conn) {
 		client, err := s.GetClient(msg.Site)
 		if err != nil {
 			log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
+			errMsg := &ErrorMessage{Message: err.Error()}
+			WriteMessage(conn, errMsg)
+			conn.Close()
+			return
 		}
 
 		log.Printf("client created for site %d\n", msg.Site)
 
 		if err = client.AdjustPolicy(msg.Populations); err != nil {
 			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
+			errMsg := &ErrorMessage{Message: err.Error()}
+			WriteMessage(conn, errMsg)
+			conn.Close()
+			return
 		}
 
 		log.Printf("Adjusted policy for site %d\n", msg.Site)
