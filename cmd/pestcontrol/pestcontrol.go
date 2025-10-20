@@ -4,14 +4,21 @@ import (
 	"bean/pkg/pserver"
 	"bufio"
 	"flag"
+	"io"
 	"log"
 	"net"
+	"sync/atomic"
 )
 
 var portNumber = flag.Int("port", 4242, "Port number of server")
 
-func main() {
+var idGenClient atomic.Int32
 
+func newClientId() int {
+	return int(idGenClient.Add(1))
+}
+
+func main() {
 	flag.Parse()
 
 	s := Server{ASClients: make(map[uint32]*Client), ActionChan: make(chan func())}
@@ -67,6 +74,8 @@ func (s *Server) GetClient(site uint32) (*Client, error) {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
+	clientId := newClientId()
+	log.Printf("New client with Id: %d\n", clientId)
 
 	_, err := ReadHelloMessage(br)
 	if err != nil {
@@ -88,7 +97,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	for {
 		msg, err := ReadSiteVisitMessage(br)
-		if err != nil {
+		if err == io.EOF {
+			log.Printf("EOF, disconecting client %d\n", clientId)
+			conn.Close()
+		} else if err != nil {
 			log.Printf("Error reading SiteVisit message: %v\n", err)
 			errMsg := &ErrorMessage{Message: err.Error()}
 			WriteMessage(conn, errMsg)

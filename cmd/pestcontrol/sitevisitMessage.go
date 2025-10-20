@@ -26,20 +26,17 @@ func (s *SiteVisitMessage) GetBytesSum() byte {
 	sum := byte(SiteVisit)
 
 	lenSlice := GetUint32AsBytes(&s.Length)
-
 	for _, b := range lenSlice {
 		sum += b
 	}
 
 	siteSlice := GetUint32AsBytes(&s.Site)
-
 	for _, b := range siteSlice {
 		sum += b
 	}
 
 	popLen := uint32(len(s.Populations))
 	popSlice := GetUint32AsBytes(&popLen)
-
 	for _, b := range popSlice {
 		sum += b
 	}
@@ -131,11 +128,10 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisitMessage, error) {
 }
 
 func ReadSiteVisitMessage(br *bufio.Reader) (SiteVisitMessage, error) {
-
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return SiteVisitMessage{}, nil
+		return SiteVisitMessage{}, err
 	}
 
 	if mtype != SiteVisit {
