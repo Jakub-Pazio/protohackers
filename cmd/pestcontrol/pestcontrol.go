@@ -14,7 +14,8 @@ func main() {
 
 	flag.Parse()
 
-	s := Server{ASClients: make(map[uint32]Client)}
+	s := Server{ASClients: make(map[uint32]*Client)}
+	go s.Initialize()
 
 	handler := pserver.WithMiddleware(
 		s.handleConnection,
@@ -25,7 +26,42 @@ func main() {
 }
 
 type Server struct {
-	ASClients map[uint32]Client
+	ASClients  map[uint32]*Client
+	ActionChan chan func()
+}
+
+func (s *Server) Initialize() {
+	for {
+		f := <-s.ActionChan
+		f()
+	}
+}
+
+func (s *Server) GetClient(site uint32) (*Client, error) {
+	type result struct {
+		c   *Client
+		err error
+	}
+
+	ch := make(chan result)
+
+	s.ActionChan <- func() {
+		client, ok := s.ASClients[site]
+		if !ok {
+			newclient, err := NewClient(int(site))
+			if err != nil {
+				ch <- result{nil, err}
+				return
+			}
+			s.ASClients[site] = &newclient
+			client = &newclient
+		}
+
+		ch <- result{client, nil}
+	}
+
+	res := <-ch
+	return res.c, res.err
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -69,21 +105,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("SiteVisit message: %+v\n", msg)
 
-		client, ok := s.ASClients[msg.Site]
-		if !ok {
-			newclient, err := NewClient(int(msg.Site))
-			if err != nil {
-				log.Printf("Could not create client: %v\n", err)
-				errMsg := ErrorMessage{Message: "could not connect to AS"}
-				WriteMessage(conn, &errMsg)
-				conn.Close()
-				return
-			}
-			s.ASClients[msg.Site] = newclient
-			client = newclient
-			log.Printf("Client has been created")
+		client, err := s.GetClient(msg.Site)
+		if err != nil {
+			log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
 		}
 
-		client.AdjustPolicy(msg.Populations)
+		if err = client.AdjustPolicy(msg.Populations); err != nil {
+			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
+		}
 	}
 }

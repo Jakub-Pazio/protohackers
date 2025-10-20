@@ -30,6 +30,15 @@ type Client struct {
 
 	targets      []TargetPopulation
 	activePolicy map[string]PolicyStruct
+
+	ActionChan chan func()
+}
+
+func (c *Client) Initialize() {
+	for {
+		f := <-c.ActionChan
+		f()
+	}
 }
 
 func NewClient(site int) (Client, error) {
@@ -70,6 +79,8 @@ func NewClient(site int) (Client, error) {
 
 	client.targets = msg.Targets
 
+	go client.Initialize()
+
 	return client, nil
 }
 
@@ -79,60 +90,67 @@ func (c Client) SendMessage(msg Message) error {
 }
 
 func (c *Client) AdjustPolicy(actual []Population) error {
-	actMap := make(map[string]uint32)
-	for _, a := range actual {
-		actMap[a.Name] = a.Count
-	}
+	ch := make(chan error)
 
-	for _, target := range c.targets {
-		specie := target.Specie
-		actualCount := actMap[specie]
+	c.ActionChan <- func() {
+		actMap := make(map[string]uint32)
+		for _, a := range actual {
+			actMap[a.Name] = a.Count
+		}
 
-		if actualCount < target.Min || actualCount > target.Max {
-			//TODO: check if we have correct policy, if not remove or/and add new
-			currentPolicy, ok := c.activePolicy[specie]
-			if ok {
-				if actualCount < target.Min && currentPolicy.policy == Conserve {
-					continue
+		for _, target := range c.targets {
+			specie := target.Specie
+			actualCount := actMap[specie]
+
+			if actualCount < target.Min || actualCount > target.Max {
+				//TODO: check if we have correct policy, if not remove or/and add new
+				currentPolicy, ok := c.activePolicy[specie]
+				if ok {
+					if actualCount < target.Min && currentPolicy.policy == Conserve {
+						continue
+					}
+					if actualCount > target.Max && currentPolicy.policy == Cull {
+						continue
+					}
+					c.CancelPolicy(currentPolicy)
+					delete(c.activePolicy, specie)
 				}
-				if actualCount > target.Max && currentPolicy.policy == Cull {
-					continue
+
+				var newPolicy Policy
+				if actualCount < target.Min {
+					newPolicy = Conserve
+				} else {
+					newPolicy = Cull
 				}
-				c.CancelPolicy(currentPolicy)
-				delete(c.activePolicy, specie)
-			}
 
-			var newPolicy Policy
-			if actualCount < target.Min {
-				newPolicy = Conserve
-			} else {
-				newPolicy = Cull
-			}
-
-			id, err := c.CreatePolicy(specie, newPolicy)
-			if err != nil {
-				//TODO: if we treat it as a transaction we should remove previous
-				// added policies
-				return err
-			}
-			c.activePolicy[specie] = PolicyStruct{
-				pid:    id,
-				policy: newPolicy,
-			}
-
-		} else {
-			// current number of animals is correct, remove policy if exists
-			if currentPolicy, ok := c.activePolicy[specie]; ok {
-				err := c.CancelPolicy(currentPolicy)
+				id, err := c.CreatePolicy(specie, newPolicy)
 				if err != nil {
-					return err
+					//TODO: if we treat it as a transaction we should remove previous
+					// added policies
+					ch <- err
+					return
 				}
-				delete(c.activePolicy, specie)
+				c.activePolicy[specie] = PolicyStruct{
+					pid:    id,
+					policy: newPolicy,
+				}
+
+			} else {
+				// current number of animals is correct, remove policy if exists
+				if currentPolicy, ok := c.activePolicy[specie]; ok {
+					err := c.CancelPolicy(currentPolicy)
+					if err != nil {
+						ch <- err
+						return
+					}
+					delete(c.activePolicy, specie)
+				}
 			}
 		}
-	}
 
-	return nil
+		ch <- nil
+	}
+	return <-ch
 }
 
 func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
@@ -151,11 +169,20 @@ func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
 
 func (c *Client) CancelPolicy(currentPolicy PolicyStruct) error {
 	msg := DeletePolicyMessage{PolicyID: currentPolicy.pid}
-	return c.SendMessage(&msg)
+	if err := c.SendMessage(&msg); err != nil {
+		return err
+	}
+
+	_, err := c.ReceiveOkMessage()
+	return err
 }
 
 func (c Client) ReceivePolicyResultMessage() (PolicyResultMessage, error) {
 	return ReadPolicyResultMessage(c.br)
+}
+
+func (c Client) ReceiveOkMessage() (OkMessage, error) {
+	return ReadOkMessage(c.br)
 }
 
 // TODO: think if adding timeout to the reading message, for example 5 sec, if no message we return error
