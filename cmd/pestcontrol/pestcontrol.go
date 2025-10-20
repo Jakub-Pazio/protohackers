@@ -49,7 +49,7 @@ func (s *Server) GetClient(site uint32) (*Client, error) {
 	s.ActionChan <- func() {
 		client, ok := s.ASClients[site]
 		if !ok {
-			newclient, err := NewClient(int(site))
+			newclient, err := NewClient(site)
 			if err != nil {
 				ch <- result{nil, err}
 				return
@@ -116,5 +116,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if err = client.AdjustPolicy(msg.Populations); err != nil {
 			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
 		}
+
+		log.Printf("Adjusted policy for site %d\n", msg.Site)
 	}
 }

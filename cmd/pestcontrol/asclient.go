@@ -24,7 +24,7 @@ const (
 )
 
 type Client struct {
-	Site int
+	Site uint32
 	conn net.Conn
 	br   *bufio.Reader
 
@@ -36,13 +36,14 @@ type Client struct {
 
 func (c *Client) Initialize() {
 	for {
+		log.Printf("Waiting for Site Adjustment for site: %d\n", c.Site)
 		f := <-c.ActionChan
-		log.Printf("Handling Site Adjustemnt")
+		log.Printf("Handling Site Adjustemnt for site: %d\n", c.Site)
 		f()
 	}
 }
 
-func NewClient(site int) (Client, error) {
+func NewClient(site uint32) (Client, error) {
 	asAddress := net.JoinHostPort(ASDomain, ASPort)
 	conn, err := net.Dial("tcp", asAddress)
 	br := bufio.NewReader(conn)
