@@ -80,6 +80,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 	_, err := ReadHelloMessage(br)
 	if err != nil {
 		log.Printf("Error reading Hello message: %v\n", err)
+		replyMsg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
+		WriteMessage(conn, replyMsg)
 		errMsg := &ErrorMessage{Message: err.Error()}
 		WriteMessage(conn, errMsg)
 		conn.Close()
