@@ -76,10 +76,8 @@ func (al *AppLayer) AcceptString(s string) {
 			sb.WriteByte(rn)
 		}
 		sb.WriteByte('\n')
-		go func() {
-			log.Printf("Sending string %q\n", sb.String())
-			al.sendChan <- sb.String()
-		}()
+		log.Printf("Sending string %q\n", sb.String())
+		al.sendChan <- sb.String()
 	}
 
 	// recursive call, we want to send all possible messages from currentString
