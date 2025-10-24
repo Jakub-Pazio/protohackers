@@ -110,7 +110,8 @@ func (ss *SessionStruct) Act() {
 				continue
 			}
 
-			ss.readingOffset += newLength
+			newOffset := max(ss.readingOffset, newLength+ss.readingOffset)
+			ss.readingOffset = newOffset
 			msg := fmt.Sprintf("/ack/%d/%d/", ss.id, ss.readingOffset)
 			log.Printf("sending ack msg: %q\n", msg)
 			if _, err := ss.Write([]byte(msg)); err != nil {
