@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,6 +47,7 @@ type SessionStruct struct {
 	AppChan  chan string
 
 	unackedPos []int
+	upos       sync.Mutex
 
 	readingOffset int
 
@@ -316,6 +318,19 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 					Position: pos,
 					Data:     data,
 				}
+			}()
+		case Ack:
+			s, ok := server.Sessions[session]
+			if !ok {
+				log.Printf("Ack for not open session: %d\n", session)
+				continue
+			}
+			ackID, err := strconv.Atoi(rest)
+			if err != nil {
+				log.Printf("Could not parse LENGTH from ack: %v\n", err)
+			}
+			go func() {
+				s.AckChan <- ackID
 			}()
 		case Close:
 			_, ok := server.Sessions[session]
