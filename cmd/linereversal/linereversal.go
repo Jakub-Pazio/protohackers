@@ -27,8 +27,9 @@ type DataPayload struct {
 }
 
 type SessionStruct struct {
-	id   Session
-	dial *net.UDPConn
+	id         Session
+	remoteAddr *net.UDPAddr
+	ln         *net.UDPConn
 
 	DataChan  chan DataPayload
 	AckChan   chan int
@@ -193,7 +194,7 @@ func unescapeMsg(s string) (string, error) {
 }
 
 func (ss *SessionStruct) Write(p []byte) (n int, err error) {
-	return ss.dial.Write(p)
+	return ss.ln.WriteToUDP(p, ss.remoteAddr)
 }
 
 func main() {
@@ -234,16 +235,13 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 		switch mtype {
 		case Connect:
 			s, ok := server.Sessions[session]
-			dial, err := net.DialUDP("udp", nil, remoteAddr)
-			if err != nil {
-				log.Printf("Could not dial to %s: %v\n", remoteAddr, err)
-			}
 			if !ok {
 				// we must create new session
 				appChan := make(chan string)
 				newSes := &SessionStruct{
 					id:            session,
-					dial:          dial,
+					remoteAddr:    remoteAddr,
+					ln:            ln,
 					DataChan:      make(chan DataPayload),
 					AckChan:       make(chan int),
 					CloseChan:     make(chan struct{}),
