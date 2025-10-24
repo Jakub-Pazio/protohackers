@@ -263,7 +263,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 				s = newSes
 				log.Printf("Created new session %d\n", session)
 			}
-			msg := fmt.Sprintf("/ack/%d/", session)
+			msg := fmt.Sprintf("/ack/%d/0/", session)
 			if _, err = dial.Write([]byte(msg)); err != nil {
 				log.Printf("Could not ack connection %d: %v\n", session, err)
 			}
