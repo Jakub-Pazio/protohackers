@@ -39,11 +39,10 @@ type SessionStruct struct {
 	remoteAddr *net.UDPAddr
 	ln         *net.UDPConn
 
-	DataChan  chan DataPayload
-	AckChan   chan int
-	CloseChan chan struct{}
-	RetyChan  chan []byte
-	AppChan   chan string
+	DataChan chan DataPayload
+	AckChan  chan int
+	RetyChan chan []byte
+	AppChan  chan string
 
 	readingOffset int
 
@@ -137,13 +136,6 @@ func (ss *SessionStruct) Act() {
 			//TODO: handle 2 more cases, move this logic to function
 			ss.SendFrom(ackLen)
 			log.Printf("%d\n", ackLen)
-
-		case <-ss.CloseChan:
-			msg := fmt.Sprintf("/close/%d/", ss.id)
-			ss.Write([]byte(msg))
-			//TODO: read from this channel ands remove sessions in the server struct
-			ss.serverChan <- ss.id
-			return
 		case <-ss.RetyChan:
 			//TODO: register last send msg, if not acked resend
 		case s := <-ss.AppChan:
@@ -262,7 +254,6 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 					ln:            ln,
 					DataChan:      make(chan DataPayload),
 					AckChan:       make(chan int),
-					CloseChan:     make(chan struct{}),
 					RetyChan:      make(chan []byte),
 					serverChan:    schan,
 					AppChan:       appChan,
@@ -298,12 +289,10 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 			if !ok {
 				// we don't have track session associated with this ID,
 				// sending close message and closing
-				dial, err := net.DialUDP("udp", nil, remoteAddr)
-				if err != nil {
-					log.Printf("Failed to respond to unknown data: %v\n", err)
-				}
 				msg := fmt.Sprintf("/close/%d/", session)
-				_, err = dial.Write([]byte(msg))
+				if _, err = ln.WriteToUDP([]byte(msg), remoteAddr); err != nil {
+					log.Printf("Could not ack connection %d: %v\n", session, err)
+				}
 				continue
 			}
 			go func() {
@@ -313,12 +302,15 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 				}
 			}()
 		case Close:
-			s, ok := server.Sessions[session]
+			_, ok := server.Sessions[session]
 			if !ok {
 				log.Printf("Closing not open session: %d\n", session)
 				continue
 			}
-			s.CloseChan <- struct{}{}
+			msg := fmt.Sprintf("/close/%d/")
+			if _, err = ln.WriteToUDP([]byte(msg), remoteAddr); err != nil {
+				log.Printf("Could not ack connection %d: %v\n", session, err)
+			}
 		}
 	}
 }
