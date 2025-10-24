@@ -144,6 +144,8 @@ func (ss *SessionStruct) Act() {
 				ss.SendFrom(ss.ackLast)
 			}
 		case <-time.After(time.Second * 60):
+			msg := fmt.Sprintf("/close/%d/", ss.id)
+			ss.Write([]byte(msg))
 			ss.serverChan <- ss.id
 			return
 		}
