@@ -65,6 +65,7 @@ func (al *AppLayer) AcceptString(s string) {
 	// we have reached message we want to send
 	// we should reverse this part, stick newline at the end
 	// pass it to the lower layer and try to send new message from currentString
+	log.Printf("Sending reverse of: %q, rest: %q\n", toSend, rest)
 	al.currentString = rest
 
 	if len(toSend) > 0 {
@@ -72,8 +73,7 @@ func (al *AppLayer) AcceptString(s string) {
 		var sb strings.Builder
 		for i := range len(toSend) {
 			rn := toSend[len(toSend)-1-i]
-			log.Printf("Adding [%d]: %c\n", i, rn)
-			sb.WriteByte(toSend[len(toSend)-1-i])
+			sb.WriteByte(rn)
 		}
 		sb.WriteByte('\n')
 		go func() {

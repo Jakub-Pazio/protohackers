@@ -27,3 +27,22 @@ func TestParseMessage(t *testing.T) {
 
 	t.Errorf("error %v\n", err)
 }
+
+func TestUnescape(t *testing.T) {
+	msg := "\\/"
+
+	if len(msg) != 2 {
+		t.Errorf("I don't understand strings, len: %d\n", len(msg))
+	}
+
+	unescaped, err := unescapeMsg(msg)
+
+	if err != nil {
+		t.Errorf("unexpected error: %v\n", err)
+	}
+
+	want := "/"
+	if unescaped != want {
+		t.Errorf("unescaped: %v\n", unescaped)
+	}
+}
