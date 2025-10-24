@@ -129,6 +129,7 @@ func (ss *SessionStruct) Act() {
 			}
 			ss.al.AcceptString(unescaped[len(unescaped)-newLength:])
 		case ackLen := <-ss.AckChan:
+			log.Printf("[ACK]: msg: %d, last: %d, expect: %d\n", ackLen, ss.ackLast, ss.ackExpect)
 			if !(ackLen > ss.ackLast) {
 				//do nothing and stop
 				continue
@@ -330,6 +331,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 				log.Printf("Could not parse LENGTH from ack: %v\n", err)
 			}
 			go func() {
+				log.Printf("Received ACK from %d, at: %d\n", session, ackID)
 				s.AckChan <- ackID
 			}()
 		case Close:
