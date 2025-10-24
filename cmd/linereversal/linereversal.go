@@ -136,6 +136,8 @@ func (ss *SessionStruct) Act() {
 			}
 			if ackLen > ss.ackExpect {
 				// peer is misbehaving, close connection
+				msg := fmt.Sprintf("/close/%d/", ss.id)
+				ss.Write([]byte(msg))
 				ss.serverChan <- ss.id
 				return
 			}
@@ -249,7 +251,7 @@ func main() {
 }
 
 func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
-	buffer := make([]byte, 1000)
+	buffer := make([]byte, 1100)
 	for {
 		n, remoteAddr, err := ln.ReadFromUDP(buffer)
 		if err != nil {
