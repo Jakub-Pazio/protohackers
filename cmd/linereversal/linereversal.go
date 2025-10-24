@@ -139,6 +139,7 @@ func (ss *SessionStruct) Act() {
 				ss.serverChan <- ss.id
 				return
 			}
+			ss.ackLast = ackLen
 			ss.SendFrom(ackLen)
 			ss.unackedPos = slices.DeleteFunc(ss.unackedPos, func(a int) bool { return a == ackLen })
 			log.Printf("%d\n", ackLen)
