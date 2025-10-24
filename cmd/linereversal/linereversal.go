@@ -133,7 +133,8 @@ func (ss *SessionStruct) Act() {
 		case <-ss.CloseChan:
 			msg := fmt.Sprintf("/close/%d/", ss.id)
 			ss.Write([]byte(msg))
-			ss.serverChan <- ss.id
+			//TODO: read from this channel ands remove sessions in the server struct
+			// ss.serverChan <- ss.id
 			return
 		case <-ss.RetyChan:
 			//TODO: register last send msg, if not acked resend
