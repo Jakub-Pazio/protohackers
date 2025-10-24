@@ -71,10 +71,13 @@ func (al *AppLayer) AcceptString(s string) {
 		// we want to send only non-empty messages
 		var sb strings.Builder
 		for i := range len(toSend) {
+			rn := toSend[len(toSend)-1-i]
+			log.Printf("Adding [%d]: %c\n", i, rn)
 			sb.WriteByte(toSend[len(toSend)-1-i])
 		}
 		sb.WriteByte('\n')
 		go func() {
+			log.Printf("Sending string %q\n", sb.String())
 			al.sendChan <- sb.String()
 		}()
 	}
@@ -101,12 +104,19 @@ func (ss *SessionStruct) Act() {
 				fmt.Printf("Error in message, droping message: %v\n", err)
 				continue
 			}
-			msg := fmt.Sprintf("/ack/%d/%d/", ss.id, len(unescaped))
+			newLength := payload.Position + len(unescaped) - ss.readingOffset
+			if newLength < 1 {
+				fmt.Printf("No new data from request for %d\n", ss.id)
+				continue
+			}
+
+			ss.readingOffset += newLength
+			msg := fmt.Sprintf("/ack/%d/%d/", ss.id, ss.readingOffset)
 			log.Printf("sending ack msg: %q\n", msg)
 			if _, err := ss.Write([]byte(msg)); err != nil {
 				log.Printf("Failed sending ack for new data for %d: %v\n", ss.id, err)
 			}
-			ss.al.AcceptString(unescaped)
+			ss.al.AcceptString(unescaped[len(unescaped)-newLength:])
 		case ackLen := <-ss.AckChan:
 			if !(ackLen > ss.ackLast) {
 				//do nothing and stop
