@@ -346,6 +346,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 			if _, err = ln.WriteToUDP([]byte(msg), remoteAddr); err != nil {
 				log.Printf("Could not ack connection %d: %v\n", session, err)
 			}
+			delete(server.Sessions, session)
 		}
 	}
 }
