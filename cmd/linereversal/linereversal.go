@@ -195,6 +195,7 @@ func (ss *SessionStruct) SendFrom(ackLen int) {
 		}
 	}(msg, ackLen)
 	ss.Write([]byte(msg))
+	ss.SendFrom(ss.ackExpect)
 }
 
 func unescapeMsg(s string) (string, error) {
