@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var portNumber = flag.Int("port", 4242, "Port number of server")
@@ -19,6 +20,13 @@ type LineServer struct {
 	// SessionsChan allows sessions to comunicate back to server
 	// for example when they want to shutdown itself due to timeout
 	SessionsChan chan Session
+}
+
+func (ls *LineServer) Act() {
+	for {
+		id := <-ls.SessionsChan
+		delete(ls.Sessions, id)
+	}
 }
 
 type DataPayload struct {
@@ -134,7 +142,7 @@ func (ss *SessionStruct) Act() {
 			msg := fmt.Sprintf("/close/%d/", ss.id)
 			ss.Write([]byte(msg))
 			//TODO: read from this channel ands remove sessions in the server struct
-			// ss.serverChan <- ss.id
+			ss.serverChan <- ss.id
 			return
 		case <-ss.RetyChan:
 			//TODO: register last send msg, if not acked resend
@@ -143,9 +151,9 @@ func (ss *SessionStruct) Act() {
 			if ss.ackLast == ss.ackExpect {
 				ss.SendFrom(ss.ackLast)
 			}
-			// case <-time.After(time.Second * 60):
-			// 	ss.serverChan <- ss.id
-			// 	return
+		case <-time.After(time.Second * 60):
+			ss.serverChan <- ss.id
+			return
 		}
 	}
 }
