@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +44,8 @@ type SessionStruct struct {
 	AckChan  chan int
 	RetyChan chan []byte
 	AppChan  chan string
+
+	unackedPos []int
 
 	readingOffset int
 
@@ -133,8 +136,8 @@ func (ss *SessionStruct) Act() {
 				ss.serverChan <- ss.id
 				return
 			}
-			//TODO: handle 2 more cases, move this logic to function
 			ss.SendFrom(ackLen)
+			slices.DeleteFunc(ss.unackedPos, func(a int) bool { return a == ackLen })
 			log.Printf("%d\n", ackLen)
 		case <-ss.RetyChan:
 			//TODO: register last send msg, if not acked resend
@@ -175,6 +178,17 @@ func (ss *SessionStruct) SendFrom(ackLen int) {
 
 	msg := fmt.Sprintf("/data/%d/%d/%s/", ss.id, ackLen, sb.String())
 	log.Printf("Sending data: %q\n", msg)
+	ss.unackedPos = append(ss.unackedPos, ackLen)
+	go func(msg string, ack int) {
+		for {
+			time.Sleep(3 * time.Second)
+			if slices.Contains(ss.unackedPos, ack) {
+				ss.Write([]byte(msg))
+			} else {
+				return
+			}
+		}
+	}(msg, ackLen)
 	ss.Write([]byte(msg))
 }
 
