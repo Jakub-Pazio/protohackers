@@ -130,7 +130,7 @@ func (ss *SessionStruct) Act() {
 			ss.al.AcceptString(unescaped[len(unescaped)-newLength:])
 		case ackLen := <-ss.AckChan:
 			log.Printf("[ACK]: msg: %d, last: %d, expect: %d\n", ackLen, ss.ackLast, ss.ackExpect)
-			if !(ackLen > ss.ackLast) {
+			if !(ackLen >= ss.ackLast) {
 				//do nothing and stop
 				continue
 			}
@@ -342,6 +342,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 			if _, err = ln.WriteToUDP([]byte(msg), remoteAddr); err != nil {
 				log.Printf("Could not ack connection %d: %v\n", session, err)
 			}
+			log.Printf("[My close]: for %d\n", session)
 			if ok {
 				delete(server.Sessions, session)
 			}
