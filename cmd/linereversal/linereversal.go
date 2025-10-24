@@ -137,7 +137,7 @@ func (ss *SessionStruct) Act() {
 				return
 			}
 			ss.SendFrom(ackLen)
-			slices.DeleteFunc(ss.unackedPos, func(a int) bool { return a == ackLen })
+			ss.unackedPos = slices.DeleteFunc(ss.unackedPos, func(a int) bool { return a == ackLen })
 			log.Printf("%d\n", ackLen)
 		case <-ss.RetyChan:
 			//TODO: register last send msg, if not acked resend
