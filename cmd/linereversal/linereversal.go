@@ -303,6 +303,13 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 					Data:     data,
 				}
 			}()
+		case Close:
+			s, ok := server.Sessions[session]
+			if !ok {
+				log.Printf("Closing not open session: %d\n", session)
+				continue
+			}
+			s.CloseChan <- struct{}{}
 		}
 	}
 }
