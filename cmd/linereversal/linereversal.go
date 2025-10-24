@@ -268,6 +268,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 				log.Printf("Could not ack connection %d: %v\n", session, err)
 			}
 			log.Printf("acking to connect for session: %d\n", session)
+			log.Printf("r: %q\n", msg)
 			if !ok {
 				// session was not started, it was not found in the map
 				go s.Act()
