@@ -224,6 +224,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 		}
 		data := string(buffer[:n])
 		mtype, session, rest, err := ParseMessage(data)
+		log.Printf("M: %q [%s]\n", data, remoteAddr)
 
 		if err != nil {
 			log.Printf("Error reading message: %v\n", err)
