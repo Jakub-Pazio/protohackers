@@ -183,6 +183,7 @@ func (ss *SessionStruct) SendFrom(ackLen int) {
 	msg := fmt.Sprintf("/data/%d/%d/%s/", ss.id, ackLen, sb.String())
 	log.Printf("Sending data: %q\n", msg)
 	ss.unackedPos = append(ss.unackedPos, ackLen)
+	ss.ackExpect = msgOffset
 	go func(msg string, ack int) {
 		for {
 			time.Sleep(3 * time.Second)
