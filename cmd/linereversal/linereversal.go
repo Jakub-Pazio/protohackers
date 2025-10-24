@@ -307,7 +307,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 				log.Printf("Closing not open session: %d\n", session)
 				continue
 			}
-			msg := fmt.Sprintf("/close/%d/")
+			msg := fmt.Sprintf("/close/%d/", session)
 			if _, err = ln.WriteToUDP([]byte(msg), remoteAddr); err != nil {
 				log.Printf("Could not ack connection %d: %v\n", session, err)
 			}
