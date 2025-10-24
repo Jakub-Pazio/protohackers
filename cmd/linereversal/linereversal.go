@@ -246,7 +246,7 @@ func ListenerLoop(ln *net.UDPConn, server LineServer, schan chan Session) {
 			s, ok := server.Sessions[session]
 			if !ok {
 				// we must create new session
-				appChan := make(chan string)
+				appChan := make(chan string, 10)
 				newSes := &SessionStruct{
 					id:            session,
 					remoteAddr:    remoteAddr,
