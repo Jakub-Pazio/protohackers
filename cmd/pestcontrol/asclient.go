@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"log"
 	"net"
 )
@@ -97,8 +98,10 @@ func (c Client) SendMessage(msg Message) error {
 	return err
 }
 
-func (c *Client) AdjustPolicy(actual []Population) error {
+func (c *Client) AdjustPolicy(ctx context.Context, actual []Population) error {
 	ch := make(chan error)
+	ctx, childSpan := tracer.Start(ctx, "adjust policy")
+	defer childSpan.End()
 
 	log.Printf("Sending function to AP for population: %+v\n", actual)
 

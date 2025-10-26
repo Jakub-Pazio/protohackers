@@ -3,12 +3,21 @@ package main
 import (
 	"bean/pkg/pserver"
 	"bufio"
+	"context"
 	"flag"
 	"io"
 	"log"
 	"net"
 	"sync/atomic"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const name = "jakubpazio.site/protohackers/pestcontrol"
+
+var tracer = otel.Tracer(name)
 
 var portNumber = flag.Int("port", 4242, "Port number of server")
 
@@ -20,6 +29,12 @@ func newClientId() int {
 
 func main() {
 	flag.Parse()
+
+	ctx := context.Background()
+	_, err := setupOtelSDK(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	s := Server{ASClients: make(map[uint32]*Client), ActionChan: make(chan func())}
 	go s.Initialize()
@@ -73,8 +88,12 @@ func (s *Server) GetClient(site uint32) (*Client, error) {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	br := bufio.NewReader(conn)
 	clientId := newClientId()
+	ctx := context.Background()
+	ctx, span := tracer.Start(ctx, "client", trace.WithAttributes(attribute.Int("client id", clientId)))
+	defer span.End()
+
+	br := bufio.NewReader(conn)
 	log.Printf("New client with Id: %d\n", clientId)
 
 	_, err := ReadHelloMessage(br)
@@ -131,7 +150,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		log.Printf("client created for site %d\n", msg.Site)
 
-		if err = client.AdjustPolicy(msg.Populations); err != nil {
+		if err = client.AdjustPolicy(ctx, msg.Populations); err != nil {
 			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
 			errMsg := &ErrorMessage{Message: err.Error()}
 			WriteMessage(conn, errMsg)
