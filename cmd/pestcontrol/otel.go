@@ -44,7 +44,7 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 
 func newTracerProvider() (*trace.TracerProvider, error) {
 	ctx := context.Background()
-	exp, err := otlptracehttp.New(ctx)
+	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
