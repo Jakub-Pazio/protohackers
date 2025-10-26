@@ -31,7 +31,8 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	_, err := setupOtelSDK(ctx)
+	shutdown, err := setupOtelSDK(ctx)
+	defer shutdown(ctx)
 	if err != nil {
 		panic(err)
 	}
