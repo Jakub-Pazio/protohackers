@@ -1,9 +1,6 @@
 package main
 
 import (
-	"bean/cmd/pestcontrol/internal/authority"
-	"bean/cmd/pestcontrol/internal/message"
-	"bean/pkg/pserver"
 	"bufio"
 	"context"
 	"flag"
@@ -12,6 +9,9 @@ import (
 	"net"
 	"sync/atomic"
 
+	"bean/cmd/pestcontrol/internal/authority"
+	"bean/cmd/pestcontrol/internal/message"
+	pserver2 "bean/pkg/pserver/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -42,12 +42,12 @@ func main() {
 	s := Server{ASClients: make(map[uint32]*authority.Client), ActionChan: make(chan func())}
 	go s.Initialize()
 
-	handler := pserver.WithMiddleware(
+	handler := pserver2.WithMiddleware(
 		s.handleConnection,
-		pserver.LoggingMiddleware,
+		pserver2.LoggingMiddleware,
 	)
 
-	log.Fatal(pserver.ListenServe(handler, *portNumber))
+	log.Fatal(pserver2.ListenServe(ctx, handler, *portNumber))
 }
 
 type Server struct {
@@ -90,9 +90,8 @@ func (s *Server) GetClient(site uint32) (*authority.Client, error) {
 	return res.c, res.err
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	clientId := newClientId()
-	ctx := context.Background()
 	ctx, span := tracer.Start(ctx, "client", trace.WithAttributes(attribute.Int("client id", clientId)))
 	defer span.End()
 

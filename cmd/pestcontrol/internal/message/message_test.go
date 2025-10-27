@@ -3,7 +3,7 @@ package message
 import "testing"
 
 func TestValidateHello(t *testing.T) {
-	msg := HelloMessage{
+	msg := Hello{
 		Length:   0x19,
 		Protocol: "pestcontrol",
 		Version:  1,
@@ -16,9 +16,9 @@ func TestValidateHello(t *testing.T) {
 }
 
 func TestSerializeMessage(t *testing.T) {
-	msg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
+	msg := &Hello{Protocol: "pestcontrol", Version: 1}
 
-	serMsg := SerializeMessage(msg)
+	serMsg := Serialize(msg)
 
 	if serMsg[len(serMsg)-1] != 0xCE {
 		t.Errorf("checksum calculated incorectly")

@@ -92,7 +92,7 @@ func TestReadUnknownType(t *testing.T) {
 		t.Errorf("expected error, but got no")
 	}
 
-	if err != message.ErrInvalidMessageLength {
+	if err != message.ErrInvalidMessageType {
 		t.Errorf("wrong error type, got: %q", err)
 	}
 

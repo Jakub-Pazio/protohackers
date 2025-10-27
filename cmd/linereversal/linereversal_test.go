@@ -11,8 +11,10 @@ func TestParseMessage(t *testing.T) {
 		t.Errorf("Unexpected error: %v\n", err)
 	}
 
-	t.Errorf("%s\n", rest)
-	t.Errorf("%v\n", s)
+	wantRest := `0/Hello world!`
+	if rest != wantRest {
+		t.Errorf("got %q, want %q\n", rest, wantRest)
+	}
 
 	if tp != Type("data") {
 		t.Errorf("Wrong type: %q\n", err)
@@ -25,7 +27,9 @@ func TestParseMessage(t *testing.T) {
 	invalidMessage := "/data/0x12/1/o7/"
 	_, _, _, err = ParseMessage(invalidMessage)
 
-	t.Errorf("error %v\n", err)
+	if err == nil {
+		t.Errorf("expected error")
+	}
 }
 
 func TestUnescape(t *testing.T) {
