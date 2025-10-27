@@ -1,4 +1,4 @@
-package main
+package message
 
 import (
 	"bufio"
@@ -7,19 +7,21 @@ import (
 	"fmt"
 )
 
-type HelloMessage struct {
+var _ Message = (*Hello)(nil)
+
+type Hello struct {
 	Length   uint32
 	Protocol string
 	Version  uint32
 	Checksum byte
 }
 
-func (h *HelloMessage) GetChecksum() byte {
+func (h *Hello) GetChecksum() byte {
 	return h.Checksum
 }
 
-func (h *HelloMessage) GetBytesSum() byte {
-	sum := byte(Hello)
+func (h *Hello) GetBytesSum() byte {
+	sum := byte(MessageTypeHello)
 
 	lenSlice := GetUint32AsBytes(&h.Length)
 
@@ -46,7 +48,7 @@ func (h *HelloMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (h *HelloMessage) SerializeContent() []byte {
+func (h *Hello) SerializeContent() []byte {
 	var b bytes.Buffer
 
 	plen := uint32(len(h.Protocol))
@@ -63,16 +65,16 @@ func (h *HelloMessage) SerializeContent() []byte {
 	return b.Bytes()
 }
 
-func (h *HelloMessage) GetCode() byte {
-	return byte(Hello)
+func (h *Hello) GetCode() byte {
+	return byte(MessageTypeHello)
 }
 
-func ParseHello(length int, bytes []byte) (HelloMessage, error) {
+func ParseHello(length int, bytes []byte) (Hello, error) {
 	blen := len(bytes)
 	protoLen := binary.BigEndian.Uint32(bytes[:4])
 
 	if length-14 != int(protoLen) {
-		return HelloMessage{}, fmt.Errorf("protocol length incorrect")
+		return Hello{}, fmt.Errorf("protocol length incorrect")
 	}
 
 	protocol := string(bytes[4 : protoLen+4])
@@ -82,7 +84,7 @@ func ParseHello(length int, bytes []byte) (HelloMessage, error) {
 
 	checksum := bytes[blen-1]
 
-	return HelloMessage{
+	return Hello{
 		Length:   uint32(length),
 		Protocol: protocol,
 		Version:  version,
@@ -91,48 +93,49 @@ func ParseHello(length int, bytes []byte) (HelloMessage, error) {
 }
 
 var (
-	UnknownProtocol    = fmt.Errorf("unknown protocol name")
-	UnsupportedVersion = fmt.Errorf("unsupported protocol version")
-	ValidHelloMessage  = HelloMessage{Protocol: "pestcontrol", Version: 1}
+	ErrUnknownProtocol    = fmt.Errorf("unknown protocol name")
+	ErrUnsupportedVersion = fmt.Errorf("unsupported protocol version")
 )
+
+var ValidHello = Hello{Protocol: "pestcontrol", Version: 1}
 
 // TODO: this function shold not do any validation, then we could implement it as
 // function that is generic for any T Message, and get the correct type of this Message
-func ReadHelloMessage(br *bufio.Reader) (HelloMessage, error) {
+func ReadHello(br *bufio.Reader) (Hello, error) {
 	mtype, err := ReadMessageType(br)
 	if err != nil {
-		return HelloMessage{}, err
+		return Hello{}, err
 	}
 
-	if mtype != Hello {
-		return HelloMessage{}, WrongMessageType
+	if mtype != MessageTypeHello {
+		return Hello{}, ErrWrongMessage
 	}
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return HelloMessage{}, err
+		return Hello{}, err
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return HelloMessage{}, err
+		return Hello{}, err
 	}
 
 	msg, err := ParseHello(l, rest)
 	if err != nil {
-		return HelloMessage{}, err
+		return Hello{}, err
 	}
 
 	if msg.Protocol != "pestcontrol" {
-		return HelloMessage{}, UnknownProtocol
+		return Hello{}, ErrUnknownProtocol
 	}
 
 	if msg.Version != 1 {
-		return HelloMessage{}, UnsupportedVersion
+		return Hello{}, ErrUnsupportedVersion
 	}
 
 	if !ValidateChecksum(&msg) {
-		return HelloMessage{}, InvalidChecksumError
+		return Hello{}, ErrInvalidChecksum
 	}
 
 	return msg, nil

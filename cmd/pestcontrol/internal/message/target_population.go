@@ -1,29 +1,24 @@
-package main
+package message
 
 import (
+	"bean/cmd/pestcontrol/internal/animal"
 	"bufio"
 	"encoding/binary"
 )
 
-type TargetPopulationMessage struct {
+type TargetPopulation struct {
 	Length   uint32
 	Site     uint32
-	Targets  []TargetPopulation
+	Targets  []animal.TargetPopulation
 	Checksum byte
 }
 
-type TargetPopulation struct {
-	Specie string
-	Min    uint32
-	Max    uint32
-}
-
-func (t *TargetPopulationMessage) GetChecksum() byte {
+func (t *TargetPopulation) GetChecksum() byte {
 	return t.Checksum
 }
 
-func (t *TargetPopulationMessage) GetBytesSum() byte {
-	sum := byte(TargetPopulations)
+func (t *TargetPopulation) GetBytesSum() byte {
+	sum := byte(MessageTypeTargetPopulations)
 
 	lenSlice := GetUint32AsBytes(&t.Length)
 	for _, b := range lenSlice {
@@ -68,16 +63,16 @@ func (t *TargetPopulationMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (t *TargetPopulationMessage) GetCode() byte {
-	return byte(TargetPopulations)
+func (t *TargetPopulation) GetCode() byte {
+	return byte(MessageTypeTargetPopulations)
 }
 
 // We don't send TargetPopulationMessage so we don't need to serialize it
-func (t *TargetPopulationMessage) SerializeContent() []byte {
+func (t *TargetPopulation) SerializeContent() []byte {
 	return nil
 }
 
-func ParseTargetPopulations(length int, bytes []byte) (TargetPopulationMessage, error) {
+func ParseTargetPopulations(length int, bytes []byte) (TargetPopulation, error) {
 	offset := 0
 	blen := len(bytes)
 
@@ -87,7 +82,7 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulationMessage, 
 	poplen := binary.BigEndian.Uint32(bytes[offset : offset+4])
 	offset += 4
 
-	population := make([]TargetPopulation, poplen)
+	population := make([]animal.TargetPopulation, poplen)
 
 	for i := range poplen {
 		namelen := binary.BigEndian.Uint32(bytes[offset : offset+4])
@@ -100,7 +95,7 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulationMessage, 
 		maxV := binary.BigEndian.Uint32(bytes[offset : offset+4])
 		offset += 4
 
-		pop := TargetPopulation{
+		pop := animal.TargetPopulation{
 			Specie: name,
 			Min:    minV,
 			Max:    maxV,
@@ -110,7 +105,7 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulationMessage, 
 
 	checksum := bytes[blen-1]
 
-	return TargetPopulationMessage{
+	return TargetPopulation{
 		Length:   uint32(length),
 		Site:     site,
 		Targets:  population,
@@ -119,34 +114,34 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulationMessage, 
 }
 
 // TODO: This function could be generic or maybe implemented on the Message interface
-func ReadTargetPopulationsMessage(br *bufio.Reader) (TargetPopulationMessage, error) {
+func ReadTargetPopulations(br *bufio.Reader) (TargetPopulation, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return TargetPopulationMessage{}, err
+		return TargetPopulation{}, err
 	}
 
-	if mtype != TargetPopulations {
-		return TargetPopulationMessage{}, WrongMessageType
+	if mtype != MessageTypeTargetPopulations {
+		return TargetPopulation{}, ErrWrongMessage
 	}
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return TargetPopulationMessage{}, err
+		return TargetPopulation{}, err
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return TargetPopulationMessage{}, err
+		return TargetPopulation{}, err
 	}
 
 	siteMsg, err := ParseTargetPopulations(l, rest)
 	if err != nil {
-		return TargetPopulationMessage{}, err
+		return TargetPopulation{}, err
 	}
 
 	if !ValidateChecksum(&siteMsg) {
-		return TargetPopulationMessage{}, InvalidChecksumError
+		return TargetPopulation{}, ErrInvalidChecksum
 	}
 
 	return siteMsg, nil

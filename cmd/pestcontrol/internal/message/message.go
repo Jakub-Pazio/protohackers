@@ -1,8 +1,9 @@
-package main
+package message
 
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -11,25 +12,27 @@ import (
 type Type byte
 
 const (
-	Hello Type = iota + 0x50
-	Error
-	OK
-	DialAuthority
-	TargetPopulations
-	CreatePolicy
-	DeletePolicy
-	PolicyResult
-	SiteVisit
+	MessageTypeHello Type = iota + 0x50
+	MessageTypeError
+	MessageTypeOK
+	MessageTypeDialAuthority
+	MessageTypeTargetPopulations
+	MessageTypeCreatePolicy
+	MessageTypeDeletePolicy
+	MessageTypePolicyResult
+	MessageTypeSiteVisit
 
-	None Type = 0
+	MessageTypeNone Type = 0
 )
 
+const MessageMaxLen = 1_000_000
+
 var (
-	InvalidMessageTypeError   = fmt.Errorf("invalid message type")
-	MessageToLargeError       = fmt.Errorf("message to large")
-	InvalidChecksumError      = fmt.Errorf("checksum is invalid")
-	WrongMessageType          = fmt.Errorf("unexpected message type")
-	InvalidMessageLengthError = fmt.Errorf("invalid message lenght")
+	ErrInvalidMessageType   = errors.New("invalid message type")
+	ErrMessageToLarge       = errors.New("message to large")
+	ErrInvalidChecksum      = errors.New("checksum is invalid")
+	ErrWrongMessage         = errors.New("unexpected message type")
+	ErrInvalidMessageLength = errors.New("invalid message lenght")
 )
 
 func validMessageType(b byte) bool {
@@ -60,7 +63,7 @@ func ValidateChecksum(m Message) bool {
 	return m.GetBytesSum()+m.GetChecksum() == 0
 }
 
-func SerializeMessage(m Message) []byte {
+func Serialize(m Message) []byte {
 	bodyBytes := m.SerializeContent()
 
 	bodyLen := len(bodyBytes)
@@ -93,8 +96,8 @@ func GetUint32AsBytes(u *uint32) []byte {
 	return b
 }
 
-func WriteMessage(conn net.Conn, msg Message) error {
-	_, err := conn.Write(SerializeMessage(msg))
+func Write(conn net.Conn, msg Message) error {
+	_, err := conn.Write(Serialize(msg))
 	return err
 }
 
@@ -115,11 +118,11 @@ func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
 func ReadMessageType(br *bufio.Reader) (Type, error) {
 	b, err := br.ReadByte()
 	if err != nil {
-		return None, fmt.Errorf("could not read type: %v", err)
+		return MessageTypeNone, fmt.Errorf("could not read type: %v", err)
 	}
 
 	if !validMessageType(b) {
-		return None, InvalidMessageTypeError
+		return MessageTypeNone, ErrInvalidMessageType
 	}
 
 	return Type(b), nil
@@ -135,8 +138,8 @@ func ReadMessageLength(br *bufio.Reader) (int, error) {
 
 	length := binary.BigEndian.Uint32(buf)
 
-	if length > 1_000_000 {
-		return 0, MessageToLargeError
+	if length > MessageMaxLen {
+		return 0, ErrMessageToLarge
 	}
 
 	return int(length), nil

@@ -1,22 +1,22 @@
-package main
+package message
 
 import "bytes"
 
-var _ Message = &CreatePolicyMessage{}
+var _ Message = &CreatePolicy{}
 
-type CreatePolicyMessage struct {
+type CreatePolicy struct {
 	Length   uint32
 	Specie   string
 	Action   byte
 	Checksum byte
 }
 
-func (c *CreatePolicyMessage) GetChecksum() byte {
+func (c *CreatePolicy) GetChecksum() byte {
 	return c.Checksum
 }
 
-func (c *CreatePolicyMessage) GetBytesSum() byte {
-	sum := byte(CreatePolicy)
+func (c *CreatePolicy) GetBytesSum() byte {
+	sum := byte(MessageTypeCreatePolicy)
 
 	lenSlice := GetUint32AsBytes(&c.Length)
 	for _, b := range lenSlice {
@@ -34,7 +34,7 @@ func (c *CreatePolicyMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (c *CreatePolicyMessage) SerializeContent() []byte {
+func (c *CreatePolicy) SerializeContent() []byte {
 	var b bytes.Buffer
 
 	slen := uint32(len(c.Specie))
@@ -48,6 +48,6 @@ func (c *CreatePolicyMessage) SerializeContent() []byte {
 	return b.Bytes()
 }
 
-func (c *CreatePolicyMessage) GetCode() byte {
-	return byte(CreatePolicy)
+func (c *CreatePolicy) GetCode() byte {
+	return byte(MessageTypeCreatePolicy)
 }

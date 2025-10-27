@@ -1,17 +1,17 @@
-package main
+package message
 
-type DeletePolicyMessage struct {
+type DeletePolicy struct {
 	Length   uint32
 	PolicyID uint32
 	Checksum byte
 }
 
-func (d *DeletePolicyMessage) GetChecksum() byte {
+func (d *DeletePolicy) GetChecksum() byte {
 	return d.Checksum
 }
 
-func (d *DeletePolicyMessage) GetBytesSum() byte {
-	sum := byte(DeletePolicy)
+func (d *DeletePolicy) GetBytesSum() byte {
+	sum := byte(MessageTypeDeletePolicy)
 
 	lenSlice := GetUint32AsBytes(&d.Length)
 	for _, b := range lenSlice {
@@ -26,10 +26,10 @@ func (d *DeletePolicyMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (c *DeletePolicyMessage) SerializeContent() []byte {
+func (c *DeletePolicy) SerializeContent() []byte {
 	return GetUint32AsBytes(&c.PolicyID)
 }
 
-func (c *DeletePolicyMessage) GetCode() byte {
-	return byte(DeletePolicy)
+func (c *DeletePolicy) GetCode() byte {
+	return byte(MessageTypeDeletePolicy)
 }

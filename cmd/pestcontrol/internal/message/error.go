@@ -1,19 +1,19 @@
-package main
+package message
 
 import "bytes"
 
-type ErrorMessage struct {
+type Error struct {
 	Length   uint32
 	Message  string
 	Checksum byte
 }
 
-func (e *ErrorMessage) GetChecksum() byte {
+func (e *Error) GetChecksum() byte {
 	return e.Checksum
 }
 
-func (e *ErrorMessage) GetBytesSum() byte {
-	sum := byte(Error)
+func (e *Error) GetBytesSum() byte {
+	sum := byte(MessageTypeError)
 
 	lenSlice := GetUint32AsBytes(&e.Length)
 	for _, b := range lenSlice {
@@ -33,7 +33,7 @@ func (e *ErrorMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (e *ErrorMessage) SerializeContent() []byte {
+func (e *Error) SerializeContent() []byte {
 	var b bytes.Buffer
 
 	mlen := uint32(len(e.Message))
@@ -45,6 +45,6 @@ func (e *ErrorMessage) SerializeContent() []byte {
 	return b.Bytes()
 }
 
-func (e *ErrorMessage) GetCode() byte {
-	return byte(Error)
+func (e *Error) GetCode() byte {
+	return byte(MessageTypeError)
 }

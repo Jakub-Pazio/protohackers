@@ -1,10 +1,13 @@
-package main
+package authority
 
 import (
 	"bufio"
 	"context"
 	"log"
 	"net"
+
+	"bean/cmd/pestcontrol/internal/animal"
+	"bean/cmd/pestcontrol/internal/message"
 )
 
 const (
@@ -29,7 +32,7 @@ type Client struct {
 	conn net.Conn
 	br   *bufio.Reader
 
-	targets      []TargetPopulation
+	targets      []animal.TargetPopulation
 	activePolicy map[string]PolicyStruct
 
 	ActionChan chan func()
@@ -62,7 +65,7 @@ func NewClient(site uint32) (Client, error) {
 		activePolicy: make(map[string]PolicyStruct),
 		ActionChan:   make(chan func()),
 	}
-	if err = client.SendMessage(&ValidHelloMessage); err != nil {
+	if err = client.SendMessage(&message.ValidHello); err != nil {
 		return client, err
 	}
 
@@ -74,7 +77,7 @@ func NewClient(site uint32) (Client, error) {
 
 	log.Printf("Received Hello message fom AS\n")
 
-	dialMsg := DialAuthorityMessage{Site: uint32(site)}
+	dialMsg := message.DialAuthority{Site: uint32(site)}
 	if err = client.SendMessage(&dialMsg); err != nil {
 		return client, err
 	}
@@ -93,15 +96,16 @@ func NewClient(site uint32) (Client, error) {
 	return client, nil
 }
 
-func (c Client) SendMessage(msg Message) error {
-	_, err := c.conn.Write(SerializeMessage(msg))
+func (c Client) SendMessage(msg message.Message) error {
+	_, err := c.conn.Write(message.Serialize(msg))
 	return err
 }
 
-func (c *Client) AdjustPolicy(ctx context.Context, actual []Population) error {
+func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) error {
 	ch := make(chan error)
-	ctx, childSpan := tracer.Start(ctx, "adjust policy")
-	defer childSpan.End()
+	//TODO: Get this tracer from the context
+	// ctx, childSpan := tracer.Start(ctx, "adjust policy")
+	// defer childSpan.End()
 
 	log.Printf("Sending function to AP for population: %+v\n", actual)
 
@@ -167,7 +171,7 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []Population) error {
 }
 
 func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
-	msg := CreatePolicyMessage{Specie: specie, Action: byte(newPolicy)}
+	msg := message.CreatePolicy{Specie: specie, Action: byte(newPolicy)}
 	if err := c.SendMessage(&msg); err != nil {
 		return 0, err
 	}
@@ -181,7 +185,7 @@ func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
 }
 
 func (c *Client) CancelPolicy(currentPolicy PolicyStruct) error {
-	msg := DeletePolicyMessage{PolicyID: currentPolicy.pid}
+	msg := message.DeletePolicy{PolicyID: currentPolicy.pid}
 	if err := c.SendMessage(&msg); err != nil {
 		return err
 	}
@@ -190,19 +194,19 @@ func (c *Client) CancelPolicy(currentPolicy PolicyStruct) error {
 	return err
 }
 
-func (c Client) ReceivePolicyResultMessage() (PolicyResultMessage, error) {
-	return ReadPolicyResultMessage(c.br)
+func (c Client) ReceivePolicyResultMessage() (message.PolicyResult, error) {
+	return message.ReadPolicyResult(c.br)
 }
 
-func (c Client) ReceiveOkMessage() (OkMessage, error) {
-	return ReadOkMessage(c.br)
+func (c Client) ReceiveOkMessage() (message.OK, error) {
+	return message.ReadOK(c.br)
 }
 
 // TODO: think if adding timeout to the reading message, for example 5 sec, if no message we return error
-func (c Client) ReceiveHelloMessage() (HelloMessage, error) {
-	return ReadHelloMessage(c.br)
+func (c Client) ReceiveHelloMessage() (message.Hello, error) {
+	return message.ReadHello(c.br)
 }
 
-func (c Client) RecieveTargetPopulationMessage() (TargetPopulationMessage, error) {
-	return ReadTargetPopulationsMessage(c.br)
+func (c Client) RecieveTargetPopulationMessage() (message.TargetPopulation, error) {
+	return message.ReadTargetPopulations(c.br)
 }

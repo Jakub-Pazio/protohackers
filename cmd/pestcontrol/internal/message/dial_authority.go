@@ -1,17 +1,17 @@
-package main
+package message
 
-type DialAuthorityMessage struct {
+type DialAuthority struct {
 	Length   uint32
 	Site     uint32
 	Checksum byte
 }
 
-func (d *DialAuthorityMessage) GetChecksum() byte {
+func (d *DialAuthority) GetChecksum() byte {
 	return d.Checksum
 }
 
-func (d *DialAuthorityMessage) GetBytesSum() byte {
-	sum := byte(DialAuthority)
+func (d *DialAuthority) GetBytesSum() byte {
+	sum := byte(MessageTypeDialAuthority)
 
 	lenSlice := GetUint32AsBytes(&d.Length)
 	for _, b := range lenSlice {
@@ -26,11 +26,11 @@ func (d *DialAuthorityMessage) GetBytesSum() byte {
 	return sum
 }
 
-func (d *DialAuthorityMessage) SerializeContent() []byte {
+func (d *DialAuthority) SerializeContent() []byte {
 	site := uint32(d.Site)
 	return GetUint32AsBytes(&site)
 }
 
-func (d *DialAuthorityMessage) GetCode() byte {
-	return byte(DialAuthority)
+func (d *DialAuthority) GetCode() byte {
+	return byte(MessageTypeDialAuthority)
 }

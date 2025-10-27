@@ -1,6 +1,7 @@
-package main
+package e2e
 
 import (
+	"bean/cmd/pestcontrol/internal/message"
 	"bufio"
 	"io"
 	"testing"
@@ -17,18 +18,18 @@ func TestReadType(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := ReadMessageType(br)
+	got, err := message.ReadMessageType(br)
 	if err != nil {
 		t.Errorf("unexpected error: %v\n", err)
 	}
 
-	want := Hello
+	want := message.MessageTypeHello
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
 	}
 
-	len, err := ReadMessageLength(br)
+	len, err := message.ReadMessageLength(br)
 
 	lwant := 36
 	if len != lwant {
@@ -47,18 +48,18 @@ func TestReadTooLarge(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := ReadMessageType(br)
+	got, err := message.ReadMessageType(br)
 	if err != nil {
 		t.Errorf("unexpected error: %v\n", err)
 	}
 
-	want := Hello
+	want := message.MessageTypeHello
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
 	}
 
-	len, err := ReadMessageLength(br)
+	len, err := message.ReadMessageLength(br)
 
 	lwant := 0
 	if len != lwant {
@@ -69,7 +70,7 @@ func TestReadTooLarge(t *testing.T) {
 		t.Errorf("expected error but got none\n")
 	}
 
-	if err != MessageToLargeError {
+	if err != message.ErrMessageToLarge {
 		t.Errorf("incorrect error: %q\n", err)
 	}
 }
@@ -85,17 +86,17 @@ func TestReadUnknownType(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := ReadMessageType(br)
+	got, err := message.ReadMessageType(br)
 
 	if err == nil {
 		t.Errorf("expected error, but got no")
 	}
 
-	if err != InvalidMessageTypeError {
+	if err != message.ErrInvalidMessageLength {
 		t.Errorf("wrong error type, got: %q", err)
 	}
 
-	want := None
+	want := message.MessageTypeNone
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
@@ -123,35 +124,26 @@ func TestReadSiteVisit(t *testing.T) {
 
 	br := bufio.NewReader(r)
 
-	got, err := ReadMessageType(br)
+	got, err := message.ReadMessageType(br)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v\n", err)
 	}
 
-	if got != SiteVisit {
+	if got != message.MessageTypeSiteVisit {
 		t.Errorf("Expected SiteVisit, got %d\n", got)
 	}
-	l, err := ReadMessageLength(br)
+	l, err := message.ReadMessageLength(br)
 
 	if err != nil {
 		t.Errorf("Unexprected error: %v\n", err)
 	}
 
-	rest, err := ReadRemaining(br, l)
+	rest, err := message.ReadRemaining(br, l)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v\n", err)
 	}
 
 	t.Log(rest)
-
-	// msg, err := ParseSiteVisit(l, rest)
-	//
-	// ok2 := ValidateChecksum(msg)
-	//
-	// if !ok2 {
-	// 	t.Errorf("check sum is not correct\n")
-	// }
-	//
 }

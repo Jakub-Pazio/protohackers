@@ -1,24 +1,24 @@
-package main
+package message
 
 import (
 	"bufio"
 	"encoding/binary"
 )
 
-var _ Message = &PolicyResultMessage{}
+var _ Message = &PolicyResult{}
 
-type PolicyResultMessage struct {
+type PolicyResult struct {
 	Length   uint32
 	PolicyID uint32
 	Checksum byte
 }
 
-func (p *PolicyResultMessage) GetChecksum() byte {
+func (p *PolicyResult) GetChecksum() byte {
 	return p.Checksum
 }
 
-func (p *PolicyResultMessage) GetBytesSum() byte {
-	sum := byte(PolicyResult)
+func (p *PolicyResult) GetBytesSum() byte {
+	sum := byte(MessageTypePolicyResult)
 
 	lenSlice := GetUint32AsBytes(&p.Length)
 	for _, b := range lenSlice {
@@ -34,59 +34,59 @@ func (p *PolicyResultMessage) GetBytesSum() byte {
 }
 
 // We don't send this message
-func (p *PolicyResultMessage) SerializeContent() []byte {
+func (p *PolicyResult) SerializeContent() []byte {
 	return nil
 }
 
-func (p *PolicyResultMessage) GetCode() byte {
-	return byte(PolicyResult)
+func (p *PolicyResult) GetCode() byte {
+	return byte(MessageTypePolicyResult)
 }
 
 // TODO: Maybe those parse functions could be generated from the struct itself
 // Later I could write preprocessor that would generate those go function from struct definition
 // and struct tags, so in case of other messages those methods could be generated automatically
-func ParsePolicyResult(lenght int, bytes []byte) (PolicyResultMessage, error) {
+func ParsePolicyResult(lenght int, bytes []byte) (PolicyResult, error) {
 	blen := len(bytes)
 
 	policy := binary.BigEndian.Uint32(bytes[:4])
 
 	checksum := bytes[blen-1]
 
-	return PolicyResultMessage{
+	return PolicyResult{
 		Length:   uint32(lenght),
 		PolicyID: policy,
 		Checksum: checksum,
 	}, nil
 }
 
-func ReadPolicyResultMessage(br *bufio.Reader) (PolicyResultMessage, error) {
+func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return PolicyResultMessage{}, err
+		return PolicyResult{}, err
 	}
 
-	if mtype != PolicyResult {
-		return PolicyResultMessage{}, WrongMessageType
+	if mtype != MessageTypePolicyResult {
+		return PolicyResult{}, ErrWrongMessage
 	}
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return PolicyResultMessage{}, err
+		return PolicyResult{}, err
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return PolicyResultMessage{}, err
+		return PolicyResult{}, err
 	}
 
 	policyResult, err := ParsePolicyResult(l, rest)
 	if err != nil {
-		return PolicyResultMessage{}, err
+		return PolicyResult{}, err
 	}
 
 	if !ValidateChecksum(&policyResult) {
-		return PolicyResultMessage{}, InvalidChecksumError
+		return PolicyResult{}, ErrInvalidChecksum
 	}
 
 	return policyResult, nil

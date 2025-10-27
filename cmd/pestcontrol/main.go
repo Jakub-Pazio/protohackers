@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bean/cmd/pestcontrol/internal/authority"
+	"bean/cmd/pestcontrol/internal/message"
 	"bean/pkg/pserver"
 	"bufio"
 	"context"
@@ -37,7 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	s := Server{ASClients: make(map[uint32]*Client), ActionChan: make(chan func())}
+	s := Server{ASClients: make(map[uint32]*authority.Client), ActionChan: make(chan func())}
 	go s.Initialize()
 
 	handler := pserver.WithMiddleware(
@@ -49,7 +51,7 @@ func main() {
 }
 
 type Server struct {
-	ASClients  map[uint32]*Client
+	ASClients  map[uint32]*authority.Client
 	ActionChan chan func()
 }
 
@@ -61,9 +63,9 @@ func (s *Server) Initialize() {
 	}
 }
 
-func (s *Server) GetClient(site uint32) (*Client, error) {
+func (s *Server) GetClient(site uint32) (*authority.Client, error) {
 	type result struct {
-		c   *Client
+		c   *authority.Client
 		err error
 	}
 
@@ -72,7 +74,7 @@ func (s *Server) GetClient(site uint32) (*Client, error) {
 	s.ActionChan <- func() {
 		client, ok := s.ASClients[site]
 		if !ok {
-			newclient, err := NewClient(site)
+			newclient, err := authority.NewClient(site)
 			if err != nil {
 				ch <- result{nil, err}
 				return
@@ -97,20 +99,19 @@ func (s *Server) handleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
 	log.Printf("New client with Id: %d\n", clientId)
 
-	_, err := ReadHelloMessage(br)
+	_, err := message.ReadHello(br)
 	if err != nil {
 		log.Printf("Error reading Hello message: %v\n", err)
-		replyMsg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
-		WriteMessage(conn, replyMsg)
-		errMsg := &ErrorMessage{Message: err.Error()}
-		WriteMessage(conn, errMsg)
+		replyMsg := &message.Hello{Protocol: "pestcontrol", Version: 1}
+		message.Write(conn, replyMsg)
+		errMsg := &message.Error{Message: err.Error()}
+		message.Write(conn, errMsg)
 		conn.Close()
 		return
 	}
 	log.Println("Received valid hello message")
 
-	replyMsg := &HelloMessage{Protocol: "pestcontrol", Version: 1}
-	err = WriteMessage(conn, replyMsg)
+	err = message.Write(conn, &message.ValidHello)
 	if err != nil {
 		log.Printf("failed sending message: %v\n", err)
 		conn.Close()
@@ -118,22 +119,22 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 
 	for {
-		msg, err := ReadSiteVisitMessage(br)
+		msg, err := message.ReadSiteVisit(br)
 		if err == io.EOF {
 			log.Printf("EOF, disconecting client %d\n", clientId)
 			conn.Close()
 		} else if err != nil {
 			log.Printf("Error reading SiteVisit message: %v\n", err)
-			errMsg := &ErrorMessage{Message: err.Error()}
-			WriteMessage(conn, errMsg)
+			errMsg := &message.Error{Message: err.Error()}
+			message.Write(conn, errMsg)
 			conn.Close()
 			return
 		}
 
-		if err = VerifyVisitSite(msg); err != nil {
+		if err = message.VerifySiteVisit(msg); err != nil {
 			log.Printf("Invalid SiteVisit message: %v\n", err)
-			errMsg := &ErrorMessage{Message: err.Error()}
-			WriteMessage(conn, errMsg)
+			errMsg := &message.Error{Message: err.Error()}
+			message.Write(conn, errMsg)
 			conn.Close()
 			return
 		}
@@ -143,8 +144,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 		client, err := s.GetClient(msg.Site)
 		if err != nil {
 			log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
-			errMsg := &ErrorMessage{Message: err.Error()}
-			WriteMessage(conn, errMsg)
+			errMsg := &message.Error{Message: err.Error()}
+			message.Write(conn, errMsg)
 			conn.Close()
 			return
 		}
@@ -153,8 +154,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		if err = client.AdjustPolicy(ctx, msg.Populations); err != nil {
 			log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
-			errMsg := &ErrorMessage{Message: err.Error()}
-			WriteMessage(conn, errMsg)
+			errMsg := &message.Error{Message: err.Error()}
+			message.Write(conn, errMsg)
 			conn.Close()
 			return
 		}
