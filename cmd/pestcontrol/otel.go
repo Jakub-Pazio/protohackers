@@ -45,7 +45,7 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 		return shutdown, err
 	}
 
-	loggerProvider, err := newLoggerProvider()
+	loggerProvider, err := newLoggerProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -78,15 +78,25 @@ func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	return traceProvider, nil
 }
 
-func newLoggerProvider() (*log.LoggerProvider, error) {
+func newLoggerProvider(ctx context.Context) (*log.LoggerProvider, error) {
 	//TODO: use otel exporter and send logs to log database in "production"
 	logExporter, err := stdoutlog.New()
 	if err != nil {
 		return nil, fmt.Errorf("stdout logger: %w", err)
 	}
 
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceName("pestcontrol"),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new otel resource: %w", err)
+	}
+
 	loggerProvider := log.NewLoggerProvider(
 		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+		log.WithResource(res),
 	)
 
 	return loggerProvider, nil
