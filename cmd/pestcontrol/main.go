@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"bean/cmd/pestcontrol/internal/authority"
 	"bean/cmd/pestcontrol/internal/message"
 	pserver2 "bean/pkg/pserver/v2"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -119,11 +121,11 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	for {
 		msg, err := message.ReadSiteVisit(br)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			log.Printf("EOF, disconecting client %d\n", clientId)
 			conn.Close()
 		} else if err != nil {
-			log.Printf("Error reading SiteVisit message: %v\n", err)
+			log.Printf("Error reading SiteVisit: %v\n", err)
 			errMsg := &message.Error{Message: err.Error()}
 			message.Write(conn, errMsg)
 			conn.Close()
@@ -131,7 +133,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		}
 
 		if err = message.VerifySiteVisit(msg); err != nil {
-			log.Printf("Invalid SiteVisit message: %v\n", err)
+			log.Printf("Error veryfying site visit: %v\n", err)
 			errMsg := &message.Error{Message: err.Error()}
 			message.Write(conn, errMsg)
 			conn.Close()
