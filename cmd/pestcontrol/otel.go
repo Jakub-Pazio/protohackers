@@ -7,6 +7,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -29,7 +32,7 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 		err = errors.Join(inErr, shutdown(ctx))
 	}
 
-	traceProvider, err := newTracerProvider()
+	traceProvider, err := newTracerProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return shutdown, err
@@ -42,11 +45,18 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 		return shutdown, err
 	}
 
+	loggerProvider, err := newLoggerProvider()
+	if err != nil {
+		handleErr(err)
+		return shutdown, err
+	}
+	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
+	global.SetLoggerProvider(loggerProvider)
+
 	return shutdown, err
 }
 
-func newTracerProvider() (*trace.TracerProvider, error) {
-	ctx := context.Background()
+func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
 	if err != nil {
 		return nil, fmt.Errorf("new http otel exporter: %w", err)
@@ -66,4 +76,18 @@ func newTracerProvider() (*trace.TracerProvider, error) {
 		trace.WithResource(res),
 	)
 	return traceProvider, nil
+}
+
+func newLoggerProvider() (*log.LoggerProvider, error) {
+	//TODO: use otel exporter and send logs to log database in "production"
+	logExporter, err := stdoutlog.New()
+	if err != nil {
+		return nil, fmt.Errorf("stdout logger: %w", err)
+	}
+
+	loggerProvider := log.NewLoggerProvider(
+		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+	)
+
+	return loggerProvider, nil
 }

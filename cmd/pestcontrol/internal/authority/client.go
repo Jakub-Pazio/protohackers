@@ -9,11 +9,21 @@ import (
 
 	"bean/cmd/pestcontrol/internal/animal"
 	"bean/cmd/pestcontrol/internal/message"
+
+	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/otel"
 )
 
 const (
 	ASDomain = "pestcontrol.protohackers.com"
 	ASPort   = "20547"
+)
+
+const name = "jakubpazio.site/protohackers/authority/client"
+
+var (
+	logger = otelslog.NewLogger(name)
+	tracer = otel.Tracer(name)
 )
 
 type Policy byte
@@ -103,11 +113,10 @@ func (c Client) SendMessage(msg message.Message) error {
 
 func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) error {
 	ch := make(chan error)
-	//TODO: Get this tracer from the context
-	// ctx, childSpan := tracer.Start(ctx, "adjust policy")
-	// defer childSpan.End()
+	ctx, span := tracer.Start(ctx, "adjust-policy")
+	defer span.End()
 
-	log.Printf("Sending function to AP for population: %+v\n", actual)
+	logger.InfoContext(ctx, "Adjusting policy", "actual-population-lenght", len(actual))
 
 	c.ActionChan <- func() {
 		actMap := make(map[string]uint32)
@@ -120,6 +129,7 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) 
 			actualCount := actMap[specie]
 
 			if actualCount < target.Min || actualCount > target.Max {
+				logger.InfoContext(ctx, "Population out of range", "specie", target.Specie)
 				currentPolicy, ok := c.activePolicy[specie]
 				if ok {
 					if actualCount < target.Min && currentPolicy.policy == Conserve {
