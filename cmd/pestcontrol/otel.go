@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -46,9 +47,9 @@ func setupOtelSDK(ctx context.Context) (func(context.Context) error, error) {
 
 func newTracerProvider() (*trace.TracerProvider, error) {
 	ctx := context.Background()
-	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new http otel exporter: %w", err)
 	}
 
 	res, err := resource.New(ctx,
@@ -57,11 +58,11 @@ func newTracerProvider() (*trace.TracerProvider, error) {
 		),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new otel resource: %w", err)
 	}
 
 	traceProvider := trace.NewTracerProvider(
-		trace.WithBatcher(exp),
+		trace.WithBatcher(exporter),
 		trace.WithResource(res),
 	)
 	return traceProvider, nil

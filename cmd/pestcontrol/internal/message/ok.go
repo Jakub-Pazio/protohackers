@@ -1,6 +1,9 @@
 package message
 
-import "bufio"
+import (
+	"bufio"
+	"fmt"
+)
 
 var _ Message = (*OK)(nil)
 
@@ -47,7 +50,7 @@ func ReadOK(br *bufio.Reader) (OK, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return OK{}, nil
+		return OK{}, fmt.Errorf("read message type: %w", err)
 	}
 
 	if mtype != MessageTypeOK {
@@ -56,17 +59,17 @@ func ReadOK(br *bufio.Reader) (OK, error) {
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return OK{}, err
+		return OK{}, fmt.Errorf("read message length: %w", err)
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return OK{}, err
+		return OK{}, fmt.Errorf("read remaining: %w", err)
 	}
 
 	okMsg, err := ParseOk(l, rest)
 	if err != nil {
-		return OK{}, err
+		return OK{}, fmt.Errorf("parse ok: %w", err)
 	}
 
 	if !ValidateChecksum(&okMsg) {

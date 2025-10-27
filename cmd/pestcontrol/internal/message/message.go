@@ -109,7 +109,7 @@ func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
 	_, err := io.ReadFull(br, buf)
 
 	if err != nil {
-		return buf, fmt.Errorf("could not read whole message: %q", err)
+		return buf, fmt.Errorf("read full: %w", err)
 	}
 
 	return buf, err
@@ -118,7 +118,7 @@ func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
 func ReadMessageType(br *bufio.Reader) (Type, error) {
 	b, err := br.ReadByte()
 	if err != nil {
-		return MessageTypeNone, fmt.Errorf("could not read type: %v", err)
+		return MessageTypeNone, fmt.Errorf("read byte: %w", err)
 	}
 
 	if !validMessageType(b) {
@@ -133,7 +133,7 @@ func ReadMessageLength(br *bufio.Reader) (int, error) {
 	_, err := io.ReadFull(br, buf)
 
 	if err != nil {
-		return 0, fmt.Errorf("could not read message length: %v", err)
+		return 0, fmt.Errorf("read full: %w", err)
 	}
 
 	length := binary.BigEndian.Uint32(buf)

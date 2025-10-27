@@ -104,7 +104,7 @@ var ValidHello = Hello{Protocol: "pestcontrol", Version: 1}
 func ReadHello(br *bufio.Reader) (Hello, error) {
 	mtype, err := ReadMessageType(br)
 	if err != nil {
-		return Hello{}, err
+		return Hello{}, fmt.Errorf("read message type: %w", err)
 	}
 
 	if mtype != MessageTypeHello {
@@ -113,17 +113,17 @@ func ReadHello(br *bufio.Reader) (Hello, error) {
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return Hello{}, err
+		return Hello{}, fmt.Errorf("read message length: %w", err)
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return Hello{}, err
+		return Hello{}, fmt.Errorf("read remaining: %w", err)
 	}
 
 	msg, err := ParseHello(l, rest)
 	if err != nil {
-		return Hello{}, err
+		return Hello{}, fmt.Errorf("parse hello: %w", err)
 	}
 
 	if msg.Protocol != "pestcontrol" {

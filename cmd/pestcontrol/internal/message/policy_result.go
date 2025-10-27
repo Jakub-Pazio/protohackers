@@ -3,6 +3,7 @@ package message
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 )
 
 var _ Message = &PolicyResult{}
@@ -63,7 +64,7 @@ func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return PolicyResult{}, err
+		return PolicyResult{}, fmt.Errorf("read message type: %w", err)
 	}
 
 	if mtype != MessageTypePolicyResult {
@@ -72,17 +73,17 @@ func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return PolicyResult{}, err
+		return PolicyResult{}, fmt.Errorf("read message length: %w", err)
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return PolicyResult{}, err
+		return PolicyResult{}, fmt.Errorf("read remaining message: %w", err)
 	}
 
 	policyResult, err := ParsePolicyResult(l, rest)
 	if err != nil {
-		return PolicyResult{}, err
+		return PolicyResult{}, fmt.Errorf("parse policy result: %w", err)
 	}
 
 	if !ValidateChecksum(&policyResult) {

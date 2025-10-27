@@ -127,7 +127,7 @@ func TestReadSiteVisit(t *testing.T) {
 	got, err := message.ReadMessageType(br)
 
 	if err != nil {
-		t.Errorf("Unexpected error: %v\n", err)
+		t.Errorf("Unexpected error: %q\n", err)
 	}
 
 	if got != message.MessageTypeSiteVisit {
@@ -136,13 +136,13 @@ func TestReadSiteVisit(t *testing.T) {
 	l, err := message.ReadMessageLength(br)
 
 	if err != nil {
-		t.Errorf("Unexprected error: %v\n", err)
+		t.Errorf("Unexprected error: %q\n", err)
 	}
 
 	rest, err := message.ReadRemaining(br, l)
 
 	if err != nil {
-		t.Errorf("Unexpected error: %v\n", err)
+		t.Errorf("Unexpected error: %q\n", err)
 	}
 
 	t.Log(rest)

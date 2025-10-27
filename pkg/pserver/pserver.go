@@ -36,7 +36,7 @@ func ListenServeUDP(handler UDPHandlerFunc, port int) error {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	ln, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return fmt.Errorf("failed to bind to port %d, %w", port, err)
+		return fmt.Errorf("listenUPD on port %d: %w", port, err)
 	}
 	log.Printf("server started successfully, running at port: %d\n", port)
 	buffer := make([]byte, 1024)

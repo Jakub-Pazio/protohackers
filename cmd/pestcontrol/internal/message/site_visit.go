@@ -147,7 +147,7 @@ func ReadSiteVisit(br *bufio.Reader) (SiteVisit, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return SiteVisit{}, err
+		return SiteVisit{}, fmt.Errorf("read message type: %w", err)
 	}
 
 	if mtype != MessageTypeSiteVisit {
@@ -156,17 +156,17 @@ func ReadSiteVisit(br *bufio.Reader) (SiteVisit, error) {
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return SiteVisit{}, err
+		return SiteVisit{}, fmt.Errorf("read message length: %w", err)
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return SiteVisit{}, err
+		return SiteVisit{}, fmt.Errorf("read remainig: %w", err)
 	}
 
 	siteMsg, err := ParseSiteVisit(l, rest)
 	if err != nil {
-		return SiteVisit{}, err
+		return SiteVisit{}, fmt.Errorf("parse site visit: %w", err)
 	}
 
 	if !ValidateChecksum(&siteMsg) {

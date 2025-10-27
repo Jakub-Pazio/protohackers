@@ -4,6 +4,7 @@ import (
 	"bean/cmd/pestcontrol/internal/animal"
 	"bufio"
 	"encoding/binary"
+	"fmt"
 )
 
 type TargetPopulation struct {
@@ -118,7 +119,7 @@ func ReadTargetPopulations(br *bufio.Reader) (TargetPopulation, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return TargetPopulation{}, err
+		return TargetPopulation{}, fmt.Errorf("read message type: %w", err)
 	}
 
 	if mtype != MessageTypeTargetPopulations {
@@ -127,17 +128,17 @@ func ReadTargetPopulations(br *bufio.Reader) (TargetPopulation, error) {
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return TargetPopulation{}, err
+		return TargetPopulation{}, fmt.Errorf("read message length: %w", err)
 	}
 
 	rest, err := ReadRemaining(br, l)
 	if err != nil {
-		return TargetPopulation{}, err
+		return TargetPopulation{}, fmt.Errorf("read remaining message: %w", err)
 	}
 
 	siteMsg, err := ParseTargetPopulations(l, rest)
 	if err != nil {
-		return TargetPopulation{}, err
+		return TargetPopulation{}, fmt.Errorf("parse target population: %w", err)
 	}
 
 	if !ValidateChecksum(&siteMsg) {

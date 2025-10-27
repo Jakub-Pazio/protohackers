@@ -3,6 +3,7 @@ package authority
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -50,13 +51,12 @@ func (c *Client) Initialize() {
 func NewClient(site uint32) (Client, error) {
 	asAddress := net.JoinHostPort(ASDomain, ASPort)
 	conn, err := net.Dial("tcp", asAddress)
-	br := bufio.NewReader(conn)
-
-	log.Printf("Created connection to AS: %q\n", asAddress)
-
 	if err != nil {
-		return Client{}, err
+		return Client{}, fmt.Errorf("dial %q: %w", asAddress, err)
 	}
+
+	br := bufio.NewReader(conn)
+	log.Printf("Created connection to AS: %q\n", asAddress)
 
 	client := Client{
 		conn:         conn,
@@ -66,28 +66,28 @@ func NewClient(site uint32) (Client, error) {
 		ActionChan:   make(chan func()),
 	}
 	if err = client.SendMessage(&message.ValidHello); err != nil {
-		return client, err
+		return client, fmt.Errorf("send hello: %w", err)
 	}
 
 	log.Printf("Sent Hello message to AS\n")
 
 	if _, err = client.ReceiveHelloMessage(); err != nil {
-		return client, err
+		return client, fmt.Errorf("receive hello: %w", err)
 	}
 
 	log.Printf("Received Hello message fom AS\n")
 
 	dialMsg := message.DialAuthority{Site: uint32(site)}
 	if err = client.SendMessage(&dialMsg); err != nil {
-		return client, err
+		return client, fmt.Errorf("send dial: %w", err)
 	}
 
 	msg, err := client.RecieveTargetPopulationMessage()
-	log.Printf("Received Target from AS: %+v\n", msg)
 
 	if err != nil {
-		return client, err
+		return client, fmt.Errorf("receive target population: %w", err)
 	}
+	log.Printf("Received Target from AS: %+v\n", msg)
 
 	client.targets = msg.Targets
 
@@ -132,18 +132,14 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) 
 					delete(c.activePolicy, specie)
 				}
 
-				var newPolicy Policy
+				newPolicy := Cull
 				if actualCount < target.Min {
 					newPolicy = Conserve
-				} else {
-					newPolicy = Cull
 				}
 
 				id, err := c.CreatePolicy(specie, newPolicy)
 				if err != nil {
-					//TODO: if we treat it as a transaction we should remove previous
-					// added policies
-					ch <- err
+					ch <- fmt.Errorf("create policy: %w", err)
 					return
 				}
 				c.activePolicy[specie] = PolicyStruct{
@@ -156,7 +152,7 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) 
 				if currentPolicy, ok := c.activePolicy[specie]; ok {
 					err := c.CancelPolicy(currentPolicy)
 					if err != nil {
-						ch <- err
+						ch <- fmt.Errorf("cancel policy: %w", err)
 						return
 					}
 					delete(c.activePolicy, specie)
@@ -173,12 +169,12 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) 
 func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
 	msg := message.CreatePolicy{Specie: specie, Action: byte(newPolicy)}
 	if err := c.SendMessage(&msg); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("send create policy message: %w", err)
 	}
 
 	resultMsg, err := c.ReceivePolicyResultMessage()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("receive policy result: %w", err)
 	}
 
 	return resultMsg.PolicyID, nil
@@ -187,7 +183,7 @@ func (c *Client) CreatePolicy(specie string, newPolicy Policy) (uint32, error) {
 func (c *Client) CancelPolicy(currentPolicy PolicyStruct) error {
 	msg := message.DeletePolicy{PolicyID: currentPolicy.pid}
 	if err := c.SendMessage(&msg); err != nil {
-		return err
+		return fmt.Errorf("delete policy: %w", err)
 	}
 
 	_, err := c.ReceiveOkMessage()

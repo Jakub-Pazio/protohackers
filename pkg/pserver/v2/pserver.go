@@ -18,7 +18,7 @@ func ListenServe(ctx context.Context, handler HandlerFunc, port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("Failed to bind to port %d, %w", port, err)
+		return fmt.Errorf("listen port %d: %w", port, err)
 	}
 	log.Printf("Server started successfully, running at port: %d\n", port)
 	for {
@@ -37,7 +37,7 @@ func ListenServeUDP(handler UDPHandlerFunc, port int) error {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	ln, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return fmt.Errorf("failed to bind to port %d, %w", port, err)
+		return fmt.Errorf("listen UDP port %d, %w", port, err)
 	}
 	log.Printf("server started successfully, running at port: %d\n", port)
 	buffer := make([]byte, 1024)
