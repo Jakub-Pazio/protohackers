@@ -19,6 +19,11 @@ import (
 
 const name = "jakubpazio.site/protohackers/server"
 
+const (
+	ASDomain = "pestcontrol.protohackers.com"
+	ASPort   = "20547"
+)
+
 var (
 	tracer = otel.Tracer(name)
 	logger = otelslog.NewLogger(name)
@@ -62,12 +67,14 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 	s.ActionChan <- func() {
 		client, ok := s.ASClients[site]
 		if !ok {
-			conn, err := pcnet.NewConn()
+			asAddress := net.JoinHostPort(ASDomain, ASPort)
+			conn, err := net.Dial("tcp", asAddress)
+			pconn, err := pcnet.NewConn(conn)
 			if err != nil {
 				ch <- result{nil, fmt.Errorf("new conn: %w", err)}
 				return
 			}
-			newclient, err := authority.NewClient(ctx, site, conn)
+			newclient, err := authority.NewClient(ctx, site, pconn)
 			if err != nil {
 				ch <- result{nil, err}
 				return
@@ -86,7 +93,7 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 	clientId := newClientId()
 	clientAddress := conn.RemoteAddr().String()
-	pconn, err := pcnet.NewConn()
+	pconn, err := pcnet.NewConn(conn)
 	if err != nil {
 		//TODO: fix
 		panic(err)

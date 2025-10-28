@@ -33,12 +33,7 @@ type tcpConn struct {
 	br   *bufio.Reader
 }
 
-func NewConn() (Conn, error) {
-	asAddress := net.JoinHostPort(ASDomain, ASPort)
-	conn, err := net.Dial("tcp", asAddress)
-	if err != nil {
-		return nil, fmt.Errorf("dial %q: %w", asAddress, err)
-	}
+func NewConn(conn net.Conn) (Conn, error) {
 	br := bufio.NewReader(conn)
 	return &tcpConn{
 		conn: conn,
