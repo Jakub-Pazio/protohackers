@@ -99,6 +99,22 @@ var (
 
 var ValidHello = &Hello{Protocol: "pestcontrol", Version: 1}
 
+func ValidateHello(h Hello) error {
+	if h.Protocol != "pestcontrol" {
+		return ErrUnknownProtocol
+	}
+
+	if h.Version != 1 {
+		return ErrUnsupportedVersion
+	}
+
+	if !ValidateChecksum(&h) {
+		return ErrInvalidChecksum
+	}
+
+	return nil
+}
+
 // TODO: this function shold not do any validation, then we could implement it as
 // function that is generic for any T Message, and get the correct type of this Message
 func ReadHello(br *bufio.Reader) (*Hello, error) {

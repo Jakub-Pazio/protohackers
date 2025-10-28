@@ -8,11 +8,6 @@ import (
 	"net"
 )
 
-const (
-	ASDomain = "pestcontrol.protohackers.com"
-	ASPort   = "20547"
-)
-
 type Conn interface {
 	Read(ctx context.Context) (message.Message, error)
 	ReadHello(ctx context.Context) (*message.Hello, error)
@@ -89,6 +84,9 @@ func (t *tcpConn) ReadHello(ctx context.Context) (*message.Hello, error) {
 	h, ok := m.(*message.Hello)
 	if !ok {
 		return nil, message.ErrInvalidMessageType
+	}
+	if err = message.ValidateHello(*h); err != nil {
+		return nil, fmt.Errorf("validate hello: %w", err)
 	}
 	return h, nil
 }
