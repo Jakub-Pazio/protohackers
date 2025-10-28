@@ -59,10 +59,6 @@ func (c *Client) Initialize() {
 
 func NewClient(ctx context.Context, site uint32, conn pcnet.Conn) (*Client, error) {
 	asAddress := net.JoinHostPort(ASDomain, ASPort)
-	// conn, err := net.Dial("tcp", asAddress)
-	// if err != nil {
-	// 	return Client{}, fmt.Errorf("dial %q: %w", asAddress, err)
-	// }
 
 	log.Printf("Created connection to AS: %q\n", asAddress)
 
@@ -72,6 +68,8 @@ func NewClient(ctx context.Context, site uint32, conn pcnet.Conn) (*Client, erro
 		activePolicy: make(map[string]PolicyStruct),
 		ActionChan:   make(chan func()),
 	}
+	go client.Initialize()
+
 	if err := conn.Write(ctx, message.ValidHello); err != nil {
 		return client, fmt.Errorf("send hello: %w", err)
 	}
@@ -97,8 +95,6 @@ func NewClient(ctx context.Context, site uint32, conn pcnet.Conn) (*Client, erro
 	log.Printf("Received Target from AS: %+v\n", msg)
 
 	client.targets = msg.Targets
-
-	go client.Initialize()
 
 	return client, nil
 }

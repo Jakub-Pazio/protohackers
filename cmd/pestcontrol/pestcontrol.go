@@ -41,5 +41,14 @@ func run(port int) error {
 		pserver2.LoggingMiddleware,
 	)
 
-	return pserver2.ListenServe(ctx, handler, port)
+	go func() {
+
+		if err := pserver2.ListenServe(ctx, handler, port); err != nil {
+			panic(err)
+		}
+	}()
+
+	<-ctx.Done()
+	//TODO: handle shutdown gracefully
+	return nil
 }

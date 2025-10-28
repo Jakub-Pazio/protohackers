@@ -85,23 +85,25 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 
 func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 	clientId := newClientId()
+	clientAddress := conn.RemoteAddr().String()
 	pconn, err := pcnet.NewConn()
 	if err != nil {
 		//TODO: fix
 		panic(err)
 	}
 
-	clientAddress := pconn.RemoteAddr().String()
 	ctx, span := tracer.Start(
 		ctx,
 		"client-connection",
 		trace.WithAttributes(attribute.Int("client-id", clientId)),
 		trace.WithAttributes(attribute.String("client-address", clientAddress)),
 	)
+
 	defer func() {
 		span.End()
 		conn.Close()
 	}()
+
 	logger.InfoContext(ctx, "New client", "id", clientId)
 
 	if _, err := pconn.ReadHello(ctx); err != nil {
