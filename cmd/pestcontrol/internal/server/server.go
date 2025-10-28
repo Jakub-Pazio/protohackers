@@ -120,6 +120,8 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 		return
 	}
 
+	logger.InfoContext(ctx, "Wrote hello")
+
 	for {
 		msg, err := pconn.ReadSiteVisit(ctx)
 		if errors.Is(err, io.EOF) {
