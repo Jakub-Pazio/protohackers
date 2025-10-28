@@ -16,7 +16,7 @@ func (c *CreatePolicy) GetChecksum() byte {
 }
 
 func (c *CreatePolicy) GetBytesSum() byte {
-	sum := byte(MessageTypeCreatePolicy)
+	sum := byte(TypeCreatePolicy)
 
 	lenSlice := GetUint32AsBytes(&c.Length)
 	for _, b := range lenSlice {
@@ -49,5 +49,5 @@ func (c *CreatePolicy) SerializeContent() []byte {
 }
 
 func (c *CreatePolicy) GetCode() byte {
-	return byte(MessageTypeCreatePolicy)
+	return byte(TypeCreatePolicy)
 }

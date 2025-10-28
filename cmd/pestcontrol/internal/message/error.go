@@ -13,7 +13,7 @@ func (e *Error) GetChecksum() byte {
 }
 
 func (e *Error) GetBytesSum() byte {
-	sum := byte(MessageTypeError)
+	sum := byte(TypeError)
 
 	lenSlice := GetUint32AsBytes(&e.Length)
 	for _, b := range lenSlice {
@@ -46,5 +46,5 @@ func (e *Error) SerializeContent() []byte {
 }
 
 func (e *Error) GetCode() byte {
-	return byte(MessageTypeError)
+	return byte(TypeError)
 }

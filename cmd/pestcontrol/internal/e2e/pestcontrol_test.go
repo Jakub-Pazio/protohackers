@@ -23,7 +23,7 @@ func TestReadType(t *testing.T) {
 		t.Errorf("unexpected error: %v\n", err)
 	}
 
-	want := message.MessageTypeHello
+	want := message.TypeHello
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
@@ -53,7 +53,7 @@ func TestReadTooLarge(t *testing.T) {
 		t.Errorf("unexpected error: %v\n", err)
 	}
 
-	want := message.MessageTypeHello
+	want := message.TypeHello
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
@@ -96,7 +96,7 @@ func TestReadUnknownType(t *testing.T) {
 		t.Errorf("wrong error type, got: %q", err)
 	}
 
-	want := message.MessageTypeNone
+	want := message.TypeNone
 
 	if got != want {
 		t.Errorf("got %v, want %v\n", got, want)
@@ -130,7 +130,7 @@ func TestReadSiteVisit(t *testing.T) {
 		t.Errorf("Unexpected error: %q\n", err)
 	}
 
-	if got != message.MessageTypeSiteVisit {
+	if got != message.TypeSiteVisit {
 		t.Errorf("Expected SiteVisit, got %d\n", got)
 	}
 	l, err := message.ReadMessageLength(br)
@@ -139,7 +139,7 @@ func TestReadSiteVisit(t *testing.T) {
 		t.Errorf("Unexprected error: %q\n", err)
 	}
 
-	rest, err := message.ReadRemaining(br, l)
+	rest, err := message.ReadBody(br, l)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %q\n", err)

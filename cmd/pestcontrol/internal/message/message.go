@@ -12,20 +12,20 @@ import (
 type Type byte
 
 const (
-	MessageTypeHello Type = iota + 0x50
-	MessageTypeError
-	MessageTypeOK
-	MessageTypeDialAuthority
-	MessageTypeTargetPopulations
-	MessageTypeCreatePolicy
-	MessageTypeDeletePolicy
-	MessageTypePolicyResult
-	MessageTypeSiteVisit
+	TypeHello Type = iota + 0x50
+	TypeError
+	TypeOK
+	TypeDialAuthority
+	TypeTargetPopulations
+	TypeCreatePolicy
+	TypeDeletePolicy
+	TypePolicyResult
+	TypeSiteVisit
 
-	MessageTypeNone Type = 0
+	TypeNone Type = 0
 )
 
-const MessageMaxLen = 1_000_000
+const MaxLen = 1_000_000
 
 var (
 	ErrInvalidMessageType   = errors.New("invalid message type")
@@ -33,6 +33,7 @@ var (
 	ErrInvalidChecksum      = errors.New("checksum is invalid")
 	ErrWrongMessage         = errors.New("unexpected message type")
 	ErrInvalidMessageLength = errors.New("invalid message lenght")
+	ErrReadUnsupported      = errors.New("reading not supported for this type")
 )
 
 func validMessageType(b byte) bool {
@@ -57,6 +58,12 @@ type Message interface {
 	SerializeContent() []byte
 
 	GetCode() byte
+}
+
+type Raw struct {
+	MsgType Type
+	Lenght  int
+	Body    []byte
 }
 
 func ValidateChecksum(m Message) bool {
@@ -101,7 +108,7 @@ func Write(conn net.Conn, msg Message) error {
 	return err
 }
 
-func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
+func ReadBody(br *bufio.Reader, l int) ([]byte, error) {
 	remaining := l - MsgHeaderLen
 
 	buf := make([]byte, remaining)
@@ -118,11 +125,11 @@ func ReadRemaining(br *bufio.Reader, l int) ([]byte, error) {
 func ReadMessageType(br *bufio.Reader) (Type, error) {
 	b, err := br.ReadByte()
 	if err != nil {
-		return MessageTypeNone, fmt.Errorf("read byte: %w", err)
+		return TypeNone, fmt.Errorf("read byte: %w", err)
 	}
 
 	if !validMessageType(b) {
-		return MessageTypeNone, ErrInvalidMessageType
+		return TypeNone, ErrInvalidMessageType
 	}
 
 	return Type(b), nil
@@ -138,7 +145,7 @@ func ReadMessageLength(br *bufio.Reader) (int, error) {
 
 	length := binary.BigEndian.Uint32(buf)
 
-	if length > MessageMaxLen {
+	if length > MaxLen {
 		return 0, ErrMessageToLarge
 	}
 

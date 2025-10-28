@@ -11,7 +11,7 @@ func (d *DeletePolicy) GetChecksum() byte {
 }
 
 func (d *DeletePolicy) GetBytesSum() byte {
-	sum := byte(MessageTypeDeletePolicy)
+	sum := byte(TypeDeletePolicy)
 
 	lenSlice := GetUint32AsBytes(&d.Length)
 	for _, b := range lenSlice {
@@ -31,5 +31,5 @@ func (c *DeletePolicy) SerializeContent() []byte {
 }
 
 func (c *DeletePolicy) GetCode() byte {
-	return byte(MessageTypeDeletePolicy)
+	return byte(TypeDeletePolicy)
 }

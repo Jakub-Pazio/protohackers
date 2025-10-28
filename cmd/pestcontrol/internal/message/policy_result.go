@@ -19,7 +19,7 @@ func (p *PolicyResult) GetChecksum() byte {
 }
 
 func (p *PolicyResult) GetBytesSum() byte {
-	sum := byte(MessageTypePolicyResult)
+	sum := byte(TypePolicyResult)
 
 	lenSlice := GetUint32AsBytes(&p.Length)
 	for _, b := range lenSlice {
@@ -40,20 +40,20 @@ func (p *PolicyResult) SerializeContent() []byte {
 }
 
 func (p *PolicyResult) GetCode() byte {
-	return byte(MessageTypePolicyResult)
+	return byte(TypePolicyResult)
 }
 
 // TODO: Maybe those parse functions could be generated from the struct itself
 // Later I could write preprocessor that would generate those go function from struct definition
 // and struct tags, so in case of other messages those methods could be generated automatically
-func ParsePolicyResult(lenght int, bytes []byte) (PolicyResult, error) {
+func ParsePolicyResult(lenght int, bytes []byte) (*PolicyResult, error) {
 	blen := len(bytes)
 
 	policy := binary.BigEndian.Uint32(bytes[:4])
 
 	checksum := bytes[blen-1]
 
-	return PolicyResult{
+	return &PolicyResult{
 		Length:   uint32(lenght),
 		PolicyID: policy,
 		Checksum: checksum,
@@ -67,7 +67,7 @@ func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 		return PolicyResult{}, fmt.Errorf("read message type: %w", err)
 	}
 
-	if mtype != MessageTypePolicyResult {
+	if mtype != TypePolicyResult {
 		return PolicyResult{}, ErrWrongMessage
 	}
 
@@ -76,7 +76,7 @@ func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 		return PolicyResult{}, fmt.Errorf("read message length: %w", err)
 	}
 
-	rest, err := ReadRemaining(br, l)
+	rest, err := ReadBody(br, l)
 	if err != nil {
 		return PolicyResult{}, fmt.Errorf("read remaining message: %w", err)
 	}
@@ -86,9 +86,9 @@ func ReadPolicyResult(br *bufio.Reader) (PolicyResult, error) {
 		return PolicyResult{}, fmt.Errorf("parse policy result: %w", err)
 	}
 
-	if !ValidateChecksum(&policyResult) {
+	if !ValidateChecksum(policyResult) {
 		return PolicyResult{}, ErrInvalidChecksum
 	}
 
-	return policyResult, nil
+	return *policyResult, nil
 }

@@ -23,7 +23,7 @@ func (s *SiteVisit) GetChecksum() byte {
 }
 
 func (s *SiteVisit) GetBytesSum() byte {
-	sum := byte(MessageTypeSiteVisit)
+	sum := byte(TypeSiteVisit)
 
 	lenSlice := GetUint32AsBytes(&s.Length)
 	for _, b := range lenSlice {
@@ -63,7 +63,7 @@ func (s *SiteVisit) GetBytesSum() byte {
 }
 
 func (s *SiteVisit) GetCode() byte {
-	return byte(MessageTypeSiteVisit)
+	return byte(TypeSiteVisit)
 }
 
 // We don't send SiteVisitMessage so we don't need to serialize it
@@ -71,7 +71,7 @@ func (s *SiteVisit) SerializeContent() []byte {
 	return nil
 }
 
-func VerifySiteVisit(s SiteVisit) error {
+func VerifySiteVisit(s *SiteVisit) error {
 	popMap := make(map[string]uint32)
 
 	for _, p := range s.Populations {
@@ -88,18 +88,18 @@ func VerifySiteVisit(s SiteVisit) error {
 	return nil
 }
 
-func ParseSiteVisit(length int, bytes []byte) (SiteVisit, error) {
+func ParseSiteVisit(length int, bytes []byte) (*SiteVisit, error) {
 	offset := 0
 	blen := len(bytes)
 
 	if offset+4 > blen {
-		return SiteVisit{}, ErrInvalidMessageLength
+		return nil, ErrInvalidMessageLength
 	}
 	site := binary.BigEndian.Uint32(bytes[:offset+4])
 	offset += 4
 
 	if offset+4 > blen {
-		return SiteVisit{}, ErrInvalidMessageLength
+		return nil, ErrInvalidMessageLength
 	}
 	populationLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
 	offset += 4
@@ -108,19 +108,19 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisit, error) {
 
 	for i := range populationLen {
 		if offset+4 > blen {
-			return SiteVisit{}, ErrInvalidMessageLength
+			return nil, ErrInvalidMessageLength
 		}
 		nameLen := binary.BigEndian.Uint32(bytes[offset : offset+4])
 		offset += 4
 
 		if offset+int(nameLen) > blen {
-			return SiteVisit{}, ErrInvalidMessageLength
+			return nil, ErrInvalidMessageLength
 		}
 		name := string(bytes[offset : offset+int(nameLen)])
 		offset += int(nameLen)
 
 		if offset+4 > blen {
-			return SiteVisit{}, ErrInvalidMessageLength
+			return nil, ErrInvalidMessageLength
 		}
 		count := binary.BigEndian.Uint32(bytes[offset : offset+4])
 		offset += 4
@@ -135,7 +135,7 @@ func ParseSiteVisit(length int, bytes []byte) (SiteVisit, error) {
 
 	checksum := bytes[blen-1]
 
-	return SiteVisit{
+	return &SiteVisit{
 		Length:      uint32(length),
 		Site:        site,
 		Populations: population,
@@ -150,7 +150,7 @@ func ReadSiteVisit(br *bufio.Reader) (SiteVisit, error) {
 		return SiteVisit{}, fmt.Errorf("read message type: %w", err)
 	}
 
-	if mtype != MessageTypeSiteVisit {
+	if mtype != TypeSiteVisit {
 		return SiteVisit{}, ErrWrongMessage
 	}
 
@@ -159,7 +159,7 @@ func ReadSiteVisit(br *bufio.Reader) (SiteVisit, error) {
 		return SiteVisit{}, fmt.Errorf("read message length: %w", err)
 	}
 
-	rest, err := ReadRemaining(br, l)
+	rest, err := ReadBody(br, l)
 	if err != nil {
 		return SiteVisit{}, fmt.Errorf("read remainig: %w", err)
 	}
@@ -169,9 +169,9 @@ func ReadSiteVisit(br *bufio.Reader) (SiteVisit, error) {
 		return SiteVisit{}, fmt.Errorf("parse site visit: %w", err)
 	}
 
-	if !ValidateChecksum(&siteMsg) {
+	if !ValidateChecksum(siteMsg) {
 		return SiteVisit{}, ErrInvalidChecksum
 	}
 
-	return siteMsg, nil
+	return *siteMsg, nil
 }

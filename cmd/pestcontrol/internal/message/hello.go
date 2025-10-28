@@ -21,7 +21,7 @@ func (h *Hello) GetChecksum() byte {
 }
 
 func (h *Hello) GetBytesSum() byte {
-	sum := byte(MessageTypeHello)
+	sum := byte(TypeHello)
 
 	lenSlice := GetUint32AsBytes(&h.Length)
 
@@ -66,15 +66,15 @@ func (h *Hello) SerializeContent() []byte {
 }
 
 func (h *Hello) GetCode() byte {
-	return byte(MessageTypeHello)
+	return byte(TypeHello)
 }
 
-func ParseHello(length int, bytes []byte) (Hello, error) {
+func ParseHello(length int, bytes []byte) (*Hello, error) {
 	blen := len(bytes)
 	protoLen := binary.BigEndian.Uint32(bytes[:4])
 
 	if length-14 != int(protoLen) {
-		return Hello{}, fmt.Errorf("protocol length incorrect")
+		return nil, fmt.Errorf("protocol length incorrect")
 	}
 
 	protocol := string(bytes[4 : protoLen+4])
@@ -84,7 +84,7 @@ func ParseHello(length int, bytes []byte) (Hello, error) {
 
 	checksum := bytes[blen-1]
 
-	return Hello{
+	return &Hello{
 		Length:   uint32(length),
 		Protocol: protocol,
 		Version:  version,
@@ -97,45 +97,45 @@ var (
 	ErrUnsupportedVersion = fmt.Errorf("unsupported protocol version")
 )
 
-var ValidHello = Hello{Protocol: "pestcontrol", Version: 1}
+var ValidHello = &Hello{Protocol: "pestcontrol", Version: 1}
 
 // TODO: this function shold not do any validation, then we could implement it as
 // function that is generic for any T Message, and get the correct type of this Message
-func ReadHello(br *bufio.Reader) (Hello, error) {
+func ReadHello(br *bufio.Reader) (*Hello, error) {
 	mtype, err := ReadMessageType(br)
 	if err != nil {
-		return Hello{}, fmt.Errorf("read message type: %w", err)
+		return nil, fmt.Errorf("read message type: %w", err)
 	}
 
-	if mtype != MessageTypeHello {
-		return Hello{}, ErrWrongMessage
+	if mtype != TypeHello {
+		return nil, ErrWrongMessage
 	}
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return Hello{}, fmt.Errorf("read message length: %w", err)
+		return nil, fmt.Errorf("read message length: %w", err)
 	}
 
-	rest, err := ReadRemaining(br, l)
+	rest, err := ReadBody(br, l)
 	if err != nil {
-		return Hello{}, fmt.Errorf("read remaining: %w", err)
+		return nil, fmt.Errorf("read remaining: %w", err)
 	}
 
 	msg, err := ParseHello(l, rest)
 	if err != nil {
-		return Hello{}, fmt.Errorf("parse hello: %w", err)
+		return nil, fmt.Errorf("parse hello: %w", err)
 	}
 
 	if msg.Protocol != "pestcontrol" {
-		return Hello{}, ErrUnknownProtocol
+		return nil, ErrUnknownProtocol
 	}
 
 	if msg.Version != 1 {
-		return Hello{}, ErrUnsupportedVersion
+		return nil, ErrUnsupportedVersion
 	}
 
-	if !ValidateChecksum(&msg) {
-		return Hello{}, ErrInvalidChecksum
+	if !ValidateChecksum(msg) {
+		return nil, ErrInvalidChecksum
 	}
 
 	return msg, nil

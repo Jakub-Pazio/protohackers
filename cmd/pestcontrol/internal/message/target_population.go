@@ -19,7 +19,7 @@ func (t *TargetPopulation) GetChecksum() byte {
 }
 
 func (t *TargetPopulation) GetBytesSum() byte {
-	sum := byte(MessageTypeTargetPopulations)
+	sum := byte(TypeTargetPopulations)
 
 	lenSlice := GetUint32AsBytes(&t.Length)
 	for _, b := range lenSlice {
@@ -65,7 +65,7 @@ func (t *TargetPopulation) GetBytesSum() byte {
 }
 
 func (t *TargetPopulation) GetCode() byte {
-	return byte(MessageTypeTargetPopulations)
+	return byte(TypeTargetPopulations)
 }
 
 // We don't send TargetPopulationMessage so we don't need to serialize it
@@ -73,7 +73,7 @@ func (t *TargetPopulation) SerializeContent() []byte {
 	return nil
 }
 
-func ParseTargetPopulations(length int, bytes []byte) (TargetPopulation, error) {
+func ParseTargetPopulations(length int, bytes []byte) (*TargetPopulation, error) {
 	offset := 0
 	blen := len(bytes)
 
@@ -106,7 +106,7 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulation, error) 
 
 	checksum := bytes[blen-1]
 
-	return TargetPopulation{
+	return &TargetPopulation{
 		Length:   uint32(length),
 		Site:     site,
 		Targets:  population,
@@ -115,34 +115,34 @@ func ParseTargetPopulations(length int, bytes []byte) (TargetPopulation, error) 
 }
 
 // TODO: This function could be generic or maybe implemented on the Message interface
-func ReadTargetPopulations(br *bufio.Reader) (TargetPopulation, error) {
+func ReadTargetPopulations(br *bufio.Reader) (*TargetPopulation, error) {
 	mtype, err := ReadMessageType(br)
 
 	if err != nil {
-		return TargetPopulation{}, fmt.Errorf("read message type: %w", err)
+		return nil, fmt.Errorf("read message type: %w", err)
 	}
 
-	if mtype != MessageTypeTargetPopulations {
-		return TargetPopulation{}, ErrWrongMessage
+	if mtype != TypeTargetPopulations {
+		return nil, ErrWrongMessage
 	}
 
 	l, err := ReadMessageLength(br)
 	if err != nil {
-		return TargetPopulation{}, fmt.Errorf("read message length: %w", err)
+		return nil, fmt.Errorf("read message length: %w", err)
 	}
 
-	rest, err := ReadRemaining(br, l)
+	rest, err := ReadBody(br, l)
 	if err != nil {
-		return TargetPopulation{}, fmt.Errorf("read remaining message: %w", err)
+		return nil, fmt.Errorf("read remaining message: %w", err)
 	}
 
 	siteMsg, err := ParseTargetPopulations(l, rest)
 	if err != nil {
-		return TargetPopulation{}, fmt.Errorf("parse target population: %w", err)
+		return nil, fmt.Errorf("parse target population: %w", err)
 	}
 
-	if !ValidateChecksum(&siteMsg) {
-		return TargetPopulation{}, ErrInvalidChecksum
+	if !ValidateChecksum(siteMsg) {
+		return nil, ErrInvalidChecksum
 	}
 
 	return siteMsg, nil

@@ -11,7 +11,7 @@ func (d *DialAuthority) GetChecksum() byte {
 }
 
 func (d *DialAuthority) GetBytesSum() byte {
-	sum := byte(MessageTypeDialAuthority)
+	sum := byte(TypeDialAuthority)
 
 	lenSlice := GetUint32AsBytes(&d.Length)
 	for _, b := range lenSlice {
@@ -32,5 +32,5 @@ func (d *DialAuthority) SerializeContent() []byte {
 }
 
 func (d *DialAuthority) GetCode() byte {
-	return byte(MessageTypeDialAuthority)
+	return byte(TypeDialAuthority)
 }
