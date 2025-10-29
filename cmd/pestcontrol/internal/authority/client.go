@@ -43,14 +43,30 @@ type Client struct {
 	targets      []animal.TargetPopulation
 	activePolicy map[string]PolicyStruct
 
-	ActionChan chan func()
+	ActionChan   chan func()
+	shutdownChan chan chan struct{}
 }
 
 func (c *Client) Initialize(ctx context.Context) {
 	for {
-		f := <-c.ActionChan
-		f()
+		select {
+		case f := <-c.ActionChan:
+			f()
+		case ch := <-c.shutdownChan:
+			c.conn.Close()
+			ch <- struct{}{}
+		}
 	}
+}
+
+func (c *Client) Shutdown() {
+	ch := make(chan struct{})
+
+	go func() {
+		c.shutdownChan <- ch
+	}()
+
+	<-ch
 }
 
 func NewClient(ctx context.Context, site uint32, conn *pcnet.Conn) (*Client, error) {

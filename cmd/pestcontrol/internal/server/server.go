@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
@@ -29,31 +31,106 @@ var (
 	logger = otelslog.NewLogger(name)
 )
 
-var idGenClient atomic.Int32
+var genClientID atomic.Int32
 
-func newClientId() int {
-	return int(idGenClient.Add(1))
+func newClientID() int {
+	return int(genClientID.Add(1))
 }
 
 type Server struct {
-	ASClients  map[uint32]*authority.Client
-	ActionChan chan func()
+	asClients    map[uint32]*authority.Client
+	actionChan   chan func()
+	clientWg     sync.WaitGroup
+	serverWg     sync.WaitGroup
+	shuttingDown bool
+	DeadChan     chan error
 }
 
 func New() *Server {
 	return &Server{
-		ASClients:  make(map[uint32]*authority.Client),
-		ActionChan: make(chan func()),
+		asClients:  make(map[uint32]*authority.Client),
+		actionChan: make(chan func()),
+		DeadChan:   make(chan error),
 	}
 }
 
 // Initialize starts server actor loop. Any public calls are effectivelly serial,
 // making access to server safe from multiple goroutines
-func (s *Server) Initialize() {
+func (s *Server) Initialize(ctx context.Context) {
 	for {
-		f := <-s.ActionChan
-		f()
+		select {
+		case f := <-s.actionChan:
+			f()
+		case <-ctx.Done():
+			// We don't want to start any new connections, wait for current to end
+			// for some resonable time, them shutdown all AS clients, and return
+			s.shuttingDown = true
+			ch := s.shutdown(ctx)
+			select {
+			case err := <-ch:
+				s.DeadChan <- err
+			case <-time.After(time.Second * 15):
+				s.DeadChan <- errors.New("failed to close server on time")
+			}
+			return
+		}
 	}
+}
+
+// We start the process of shuting down the server, first we wait some time for clients to close connections,
+// then we close all outgoing AS connections
+func (s *Server) shutdown(ctx context.Context) chan error {
+	chErr := make(chan error)
+
+	go func() {
+		var (
+			err error
+			cCh = s.waitForClients(ctx)
+		)
+
+		select {
+		case <-cCh:
+			// try to close outgoing calls
+		case <-time.After(time.Second * 10):
+			errors.Join(err, errors.New("not all client shutdown in time"))
+		}
+
+		sCh := s.waitForSevers()
+		select {
+		case <-sCh:
+			// we closed both clients and server, we confirm shutdown and return
+		case <-time.After(time.Second * 5):
+			chErr <- errors.New("could not shutdown all HA connections")
+		}
+
+		chErr <- err
+	}()
+
+	return chErr
+}
+
+func (s *Server) waitForClients(ctx context.Context) chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		logger.InfoContext(ctx, "Started waiting for clients to finnish")
+		// We simply wait for clients to end their tasks
+		s.clientWg.Wait()
+		logger.InfoContext(ctx, "All clients disconnected")
+		ch <- struct{}{}
+	}()
+	return ch
+}
+
+func (s *Server) waitForSevers() chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		for _, c := range s.asClients {
+			c.Shutdown()
+		}
+		s.serverWg.Wait()
+		ch <- struct{}{}
+	}()
+	return ch
 }
 
 // getClient returns already created client for certain site, or bootstaps new connection,
@@ -66,8 +143,8 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 
 	ch := make(chan result)
 
-	s.ActionChan <- func() {
-		client, ok := s.ASClients[site]
+	s.actionChan <- func() {
+		client, ok := s.asClients[site]
 		if !ok {
 			asAddress := net.JoinHostPort(ASDomain, ASPort)
 			conn, err := net.Dial("tcp", asAddress)
@@ -81,7 +158,8 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 				ch <- result{nil, fmt.Errorf("new client: %w", err)}
 				return
 			}
-			s.ASClients[site] = newclient
+			s.asClients[site] = newclient
+			s.serverWg.Add(1)
 			client = newclient
 		}
 
@@ -94,9 +172,18 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 
 func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
+	if s.shuttingDown {
+		logger.WarnContext(ctx, "connection refused due to shutdown",
+			"address", conn.RemoteAddr().String(),
+		)
+		return
+	}
+
+	s.clientWg.Add(1)
+	defer s.clientWg.Done()
 
 	var (
-		clientId      = newClientId()
+		clientID      = newClientID()
 		clientAddress = conn.RemoteAddr().String()
 		pconn         = pcnet.NewConn(conn)
 	)
@@ -104,13 +191,12 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 	ctx, span := tracer.Start(
 		ctx,
 		"client-connection",
-		trace.WithAttributes(attribute.Int("client-id", clientId)),
+		trace.WithAttributes(attribute.Int("client-id", clientID)),
 		trace.WithAttributes(attribute.String("client-address", clientAddress)),
 	)
-
 	defer span.End()
 
-	logger.InfoContext(ctx, "New client", "id", clientId)
+	logger.InfoContext(ctx, "New client", "id", clientID)
 
 	if _, err := pconn.ReadHello(ctx); err != nil {
 		logger.WarnContext(ctx, "Reading hello failed", "error", err)
@@ -126,12 +212,12 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	logger.InfoContext(ctx, "Wrote hello", "client", clientId)
+	logger.InfoContext(ctx, "Wrote hello", "client", clientID)
 
 	for {
 		msg, err := pconn.ReadSiteVisit(ctx)
 		if errors.Is(err, io.EOF) {
-			logger.Info("EOF, disconecting client", "client-id", clientId)
+			logger.Info("EOF, disconecting client", "client-id", clientID)
 			break
 		} else if err != nil {
 			logger.WarnContext(ctx, "Error reading SiteVisit", "error", err)

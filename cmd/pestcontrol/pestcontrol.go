@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"os/signal"
+	"syscall"
 
 	"bean/cmd/pestcontrol/internal/server"
 	"bean/cmd/pestcontrol/internal/telemetry"
@@ -24,7 +24,7 @@ func main() {
 }
 
 func run(port int) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	shutdown, err := telemetry.SetupOtelSDK(ctx)
@@ -34,7 +34,7 @@ func run(port int) error {
 	defer shutdown(ctx)
 
 	s := server.New()
-	go s.Initialize()
+	go s.Initialize(ctx)
 
 	handler := pserver2.WithMiddleware(
 		s.HandleConnection,
@@ -42,13 +42,10 @@ func run(port int) error {
 	)
 
 	go func() {
-
 		if err := pserver2.ListenServe(ctx, handler, port); err != nil {
 			panic(err)
 		}
 	}()
 
-	<-ctx.Done()
-	//TODO: handle shutdown gracefully
-	return nil
+	return <-s.DeadChan
 }
