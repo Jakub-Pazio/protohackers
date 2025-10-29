@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 )
 
 type Type byte
@@ -101,11 +100,6 @@ func GetUint32AsBytes(u *uint32) []byte {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, *u)
 	return b
-}
-
-func Write(conn net.Conn, msg Message) error {
-	_, err := conn.Write(Serialize(msg))
-	return err
 }
 
 func ReadBody(br *bufio.Reader, l int) ([]byte, error) {

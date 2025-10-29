@@ -3,8 +3,6 @@ package authority
 import (
 	"context"
 	"fmt"
-	"log"
-	"net"
 
 	"bean/cmd/pestcontrol/internal/animal"
 	"bean/cmd/pestcontrol/internal/message"
@@ -40,7 +38,7 @@ const (
 
 type Client struct {
 	Site uint32
-	conn pcnet.Conn
+	conn *pcnet.Conn
 
 	targets      []animal.TargetPopulation
 	activePolicy map[string]PolicyStruct
@@ -48,19 +46,15 @@ type Client struct {
 	ActionChan chan func()
 }
 
-func (c *Client) Initialize() {
+func (c *Client) Initialize(ctx context.Context) {
 	for {
-		log.Printf("Waiting for Site Adjustment for site: %d\n", c.Site)
 		f := <-c.ActionChan
-		log.Printf("Handling Site Adjustemnt for site: %d\n", c.Site)
 		f()
 	}
 }
 
-func NewClient(ctx context.Context, site uint32, conn pcnet.Conn) (*Client, error) {
-	asAddress := net.JoinHostPort(ASDomain, ASPort)
-
-	log.Printf("Created connection to AS: %q\n", asAddress)
+func NewClient(ctx context.Context, site uint32, conn *pcnet.Conn) (*Client, error) {
+	logger.InfoContext(ctx, "Created connecton to AS", "site", site)
 
 	client := &Client{
 		conn:         conn,
@@ -68,47 +62,44 @@ func NewClient(ctx context.Context, site uint32, conn pcnet.Conn) (*Client, erro
 		activePolicy: make(map[string]PolicyStruct),
 		ActionChan:   make(chan func()),
 	}
-	go client.Initialize()
+	go client.Initialize(ctx)
 
 	if err := conn.Write(ctx, message.ValidHello); err != nil {
-		return client, fmt.Errorf("send hello: %w", err)
+		return client, fmt.Errorf("write Hello: %w", err)
 	}
-
-	log.Printf("Sent Hello message to AS\n")
+	logger.InfoContext(ctx, "Send Hello to AS", "site", site)
 
 	if _, err := conn.ReadHello(ctx); err != nil {
-		return client, fmt.Errorf("receive hello: %w", err)
+		return client, fmt.Errorf("read Hello: %w", err)
 	}
-
-	log.Printf("Received Hello message fom AS\n")
+	logger.InfoContext(ctx, "Received Hello", "site", site)
 
 	dialMsg := message.DialAuthority{Site: uint32(site)}
 	if err := conn.Write(ctx, &dialMsg); err != nil {
-		return client, fmt.Errorf("send dial: %w", err)
+		return client, fmt.Errorf("write DialAutority: %w", err)
 	}
 
 	msg, err := client.conn.ReadTargetPopulation(ctx)
-
 	if err != nil {
 		return client, fmt.Errorf("receive target population: %w", err)
 	}
-	log.Printf("Received Target from AS: %+v\n", msg)
+	logger.InfoContext(ctx, "Received target from AS", "site", site, "target length", len(msg.Targets))
 
 	client.targets = msg.Targets
 
 	return client, nil
 }
 
-func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) error {
+func (c *Client) AdjustPolicy(ctx context.Context, current []message.Population) error {
 	ch := make(chan error)
 	ctx, span := tracer.Start(ctx, "adjust-policy")
 	defer span.End()
 
-	logger.InfoContext(ctx, "Adjusting policy", "actual-population-lenght", len(actual))
+	logger.InfoContext(ctx, "Adjusting policy", "site", c.Site)
 
 	c.ActionChan <- func() {
 		actMap := make(map[string]uint32)
-		for _, a := range actual {
+		for _, a := range current {
 			actMap[a.Name] = a.Count
 		}
 
@@ -157,8 +148,6 @@ func (c *Client) AdjustPolicy(ctx context.Context, actual []message.Population) 
 				}
 			}
 		}
-
-		log.Printf("after adjusting: %d: %+v\n", c.Site, c.activePolicy)
 		ch <- nil
 	}
 	return <-ch

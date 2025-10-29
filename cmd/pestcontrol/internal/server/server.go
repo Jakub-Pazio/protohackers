@@ -56,6 +56,8 @@ func (s *Server) Initialize() {
 	}
 }
 
+// getClient returns already created client for certain site, or bootstaps new connection,
+// sends all necesary messages and returns ready to use client
 func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client, error) {
 	type result struct {
 		c   *authority.Client
@@ -69,14 +71,14 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 		if !ok {
 			asAddress := net.JoinHostPort(ASDomain, ASPort)
 			conn, err := net.Dial("tcp", asAddress)
-			pconn, err := pcnet.NewConn(conn)
 			if err != nil {
 				ch <- result{nil, fmt.Errorf("new conn: %w", err)}
 				return
 			}
+			pconn := pcnet.NewConn(conn)
 			newclient, err := authority.NewClient(ctx, site, pconn)
 			if err != nil {
-				ch <- result{nil, err}
+				ch <- result{nil, fmt.Errorf("new client: %w", err)}
 				return
 			}
 			s.ASClients[site] = newclient
@@ -91,13 +93,13 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 }
 
 func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
-	clientId := newClientId()
-	clientAddress := conn.RemoteAddr().String()
-	pconn, err := pcnet.NewConn(conn)
-	if err != nil {
-		//TODO: fix
-		panic(err)
-	}
+	defer conn.Close()
+
+	var (
+		clientId      = newClientId()
+		clientAddress = conn.RemoteAddr().String()
+		pconn         = pcnet.NewConn(conn)
+	)
 
 	ctx, span := tracer.Start(
 		ctx,
@@ -106,10 +108,7 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 		trace.WithAttributes(attribute.String("client-address", clientAddress)),
 	)
 
-	defer func() {
-		span.End()
-		conn.Close()
-	}()
+	defer span.End()
 
 	logger.InfoContext(ctx, "New client", "id", clientId)
 
@@ -127,7 +126,7 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	logger.InfoContext(ctx, "Wrote hello")
+	logger.InfoContext(ctx, "Wrote hello", "client", clientId)
 
 	for {
 		msg, err := pconn.ReadSiteVisit(ctx)
@@ -148,21 +147,21 @@ func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 
 		client, err := s.getClient(ctx, msg.Site)
 		if err != nil {
-			// log.Printf("Could not create client for site %d: %v\n", msg.Site, err)
-			errMsg := &message.Error{Message: err.Error()}
-			message.Write(conn, errMsg)
+			logger.WarnContext(ctx, "Failed getting client",
+				"site", msg.Site,
+				"error", err,
+			)
+			pconn.WriteError(ctx, err)
 			return
 		}
-
-		// log.Printf("client created for site %d\n", msg.Site)
 
 		if err = client.AdjustPolicy(ctx, msg.Populations); err != nil {
-			// log.Printf("Error adjusting policy for site %d: %v\n", msg.Site, err)
-			errMsg := &message.Error{Message: err.Error()}
-			message.Write(conn, errMsg)
+			logger.WarnContext(ctx, "Failed adjusting policy",
+				"site", msg.Site,
+				"error", err,
+			)
+			pconn.WriteError(ctx, err)
 			return
 		}
-
-		// log.Printf("Adjusted policy for site %d\n", msg.Site)
 	}
 }

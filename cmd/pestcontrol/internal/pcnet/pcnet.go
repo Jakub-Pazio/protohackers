@@ -8,41 +8,26 @@ import (
 	"net"
 )
 
-type Conn interface {
-	Read(ctx context.Context) (message.Message, error)
-	ReadHello(ctx context.Context) (*message.Hello, error)
-	ReadOK(ctx context.Context) (*message.OK, error)
-	ReadSiteVisit(ctx context.Context) (*message.SiteVisit, error)
-	ReadPolicyResult(ctx context.Context) (*message.PolicyResult, error)
-	ReadTargetPopulation(ctx context.Context) (*message.TargetPopulation, error)
-	Write(ctx context.Context, msg message.Message) error
-	WriteError(ctx context.Context, err error) error
-	Close() error
-	RemoteAddr() net.Addr
-}
-
-var _ Conn = (*tcpConn)(nil)
-
-type tcpConn struct {
+type Conn struct {
 	conn net.Conn
 	br   *bufio.Reader
 }
 
-func NewConn(conn net.Conn) (Conn, error) {
+func NewConn(conn net.Conn) *Conn {
 	br := bufio.NewReader(conn)
-	return &tcpConn{
+	return &Conn{
 		conn: conn,
 		br:   br,
-	}, nil
+	}
 }
 
-func (t *tcpConn) Close() error {
+func (t *Conn) Close() error {
 	t.br = nil
 	return t.conn.Close()
 }
 
 // TODO: all timeouts can be implemented on this method, because it's used with all other methods
-func (t *tcpConn) Read(ctx context.Context) (message.Message, error) {
+func (t *Conn) Read(ctx context.Context) (message.Message, error) {
 	mtype, err := message.ReadMessageType(t.br)
 	if err != nil {
 		return nil, fmt.Errorf("read message type: %w", err)
@@ -76,7 +61,7 @@ func (t *tcpConn) Read(ctx context.Context) (message.Message, error) {
 	}
 }
 
-func (t *tcpConn) ReadHello(ctx context.Context) (*message.Hello, error) {
+func (t *Conn) ReadHello(ctx context.Context) (*message.Hello, error) {
 	m, err := t.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -91,7 +76,7 @@ func (t *tcpConn) ReadHello(ctx context.Context) (*message.Hello, error) {
 	return h, nil
 }
 
-func (t *tcpConn) ReadSiteVisit(ctx context.Context) (*message.SiteVisit, error) {
+func (t *Conn) ReadSiteVisit(ctx context.Context) (*message.SiteVisit, error) {
 	m, err := t.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -104,7 +89,7 @@ func (t *tcpConn) ReadSiteVisit(ctx context.Context) (*message.SiteVisit, error)
 }
 
 // ReadPolicyResult implements Conn.
-func (t *tcpConn) ReadPolicyResult(ctx context.Context) (*message.PolicyResult, error) {
+func (t *Conn) ReadPolicyResult(ctx context.Context) (*message.PolicyResult, error) {
 	m, err := t.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -117,7 +102,7 @@ func (t *tcpConn) ReadPolicyResult(ctx context.Context) (*message.PolicyResult, 
 }
 
 // ReadOk implements Conn.
-func (t *tcpConn) ReadOK(ctx context.Context) (*message.OK, error) {
+func (t *Conn) ReadOK(ctx context.Context) (*message.OK, error) {
 	m, err := t.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -129,7 +114,7 @@ func (t *tcpConn) ReadOK(ctx context.Context) (*message.OK, error) {
 	return h, nil
 }
 
-func (t *tcpConn) ReadTargetPopulation(ctx context.Context) (*message.TargetPopulation, error) {
+func (t *Conn) ReadTargetPopulation(ctx context.Context) (*message.TargetPopulation, error) {
 	m, err := t.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -141,16 +126,16 @@ func (t *tcpConn) ReadTargetPopulation(ctx context.Context) (*message.TargetPopu
 	return h, nil
 }
 
-func (t *tcpConn) RemoteAddr() net.Addr {
+func (t *Conn) RemoteAddr() net.Addr {
 	return t.conn.RemoteAddr()
 }
 
-func (t *tcpConn) Write(ctx context.Context, msg message.Message) error {
+func (t *Conn) Write(ctx context.Context, msg message.Message) error {
 	_, err := t.conn.Write(message.Serialize(msg))
 	return err
 }
 
-func (t *tcpConn) WriteError(ctx context.Context, err error) error {
+func (t *Conn) WriteError(ctx context.Context, err error) error {
 	msg := &message.Error{Message: err.Error()}
 	return t.Write(ctx, msg)
 }
