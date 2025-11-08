@@ -172,7 +172,6 @@ func (s *Server) getClient(ctx context.Context, site uint32) (*authority.Client,
 
 func (s *Server) HandleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
-	return
 	if s.shuttingDown {
 		logger.WarnContext(ctx, "connection refused due to shutdown",
 			"address", conn.RemoteAddr().String(),
