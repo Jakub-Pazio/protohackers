@@ -33,10 +33,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      -
-        name: Build and push Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: "{{defaultContext}}:proto-hackers"
-          push: true
-          tags: jakub-pazio/proto-hackers:latest
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/jakub-pazio/proto-hackers:latest
+            ghcr.io/jakub-pazio/proto-hackers:${{ github.sha }}
