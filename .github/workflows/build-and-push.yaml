@@ -40,5 +40,5 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ REPO_NAME }}:latest
-            ghcr.io/${{ REPO_NAME }}:${{ github.sha }}
+            ghcr.io/${{ env.REPO_NAME }}:latest
+            ghcr.io/${{ env.REPO_NAME }}:${{ github.sha }}
