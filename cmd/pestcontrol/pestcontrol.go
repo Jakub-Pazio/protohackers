@@ -29,7 +29,7 @@ func run(port int) error {
 
 	shutdown, err := telemetry.SetupOtelSDK(ctx)
 	if err != nil {
-		return fmt.Errorf("setup otel sdk: %w", err)
+		return fmt.Errorf("setup OTEL sdk: %w", err)
 	}
 	defer shutdown(ctx)
 
