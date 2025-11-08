@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+env:
+  REPO_NAME: jakub-pazio
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,5 +40,5 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ REPO_NAME }}:latest
+            ghcr.io/${{ REPO_NAME }}:${{ github.sha }}
